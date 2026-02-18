@@ -1,9 +1,8 @@
-version: "3.9"
-
 services:
   # ─── PostgreSQL Database ───
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: boz
       POSTGRES_PASSWORD: boz
@@ -21,8 +20,11 @@ services:
   # ─── Redis (Cache + Celery Broker) ───
   redis:
     image: redis:7
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -34,9 +36,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file: .env
+    env_file: .env.docker
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,18 +48,27 @@ services:
     command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app/backend  # Hot reload in dev
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ─── Celery Worker (processes tasks) ───
   celery-worker:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    env_file: .env
+    restart: unless-stopped
+    env_file: .env.docker
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Skip migrations — backend entrypoint handles them
+    entrypoint: []
     command: celery -A backend.celery_app worker --loglevel=info --concurrency=2
 
   # ─── Celery Beat (schedules tasks) ───
@@ -64,9 +76,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    env_file: .env
+    restart: unless-stopped
+    env_file: .env.docker
     depends_on:
       - redis
+    # Skip migrations — backend entrypoint handles them
+    entrypoint: []
     command: celery -A backend.celery_app beat --loglevel=info
 
   # ─── Next.js Frontend (PWA) ───
@@ -74,12 +89,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Baked into the JS bundle at build time — must be browser-accessible
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  redisdata:

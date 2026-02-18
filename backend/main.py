@@ -37,12 +37,13 @@ def create_app() -> FastAPI:
         description="Automated weather prediction market trading bot for Kalshi",
     )
 
-    # CORS — allow frontend dev server
+    # CORS — allow frontend origins (dev + Docker)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "http://localhost:3000",  # Next.js dev server
+            "http://localhost:3000",   # Next.js dev server
             "http://127.0.0.1:3000",
+            "http://frontend:3000",    # Docker Compose networking
         ],
         allow_credentials=True,
         allow_methods=["*"],
