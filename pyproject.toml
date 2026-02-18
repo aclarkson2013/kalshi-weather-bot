@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boz-weather-trader"
+version = "0.1.0"
+description = "Automated weather prediction market trading bot for Kalshi"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "sqlalchemy[asyncio]>=2.0.23",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.19.0",
+    "alembic>=1.13.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "celery[redis]>=5.3.0",
+    "redis>=5.0.0",
+    "httpx>=0.25.0",
+    "cryptography>=41.0.0",
+    "websockets>=12.0",
+    "scipy>=1.11.0",
+    "numpy>=1.24.0",
+    "pywebpush>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-httpx>=0.28.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.8",
+]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: marks tests requiring Docker services (deselect with '-m not integration')",
+    "safety: marks critical safety tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "A", "C4", "SIM"]
+ignore = [
+    "N818",   # Exception names don't need Error suffix (we use BozBaseError pattern)
+    "E402",   # Module-level imports in conftest must come after env var setup
+    "B017",   # pytest.raises(Exception) is fine for Pydantic validation tests
+    "SIM117", # Nested async with is clearer for transaction rollback pattern
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend", "tests"]
