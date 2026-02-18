@@ -1,0 +1,27 @@
+{
+  "orderbook": {
+    "ticker": "KXHIGHNY-25FEB15-B3",
+    "yes": [
+      [22, 15],
+      [21, 28],
+      [20, 45],
+      [19, 12],
+      [18, 8]
+    ],
+    "no": [
+      [78, 20],
+      [79, 35],
+      [80, 42],
+      [81, 18],
+      [82, 10]
+    ]
+  },
+  "_notes": {
+    "format": "Each entry is [price_cents, quantity]",
+    "yes_array": "YES buy orders — sorted by price descending (best bid first)",
+    "no_array": "NO buy orders — sorted by price descending (best bid first)",
+    "spread": "Best YES bid (22) + Best NO bid (78) = 100 means no spread. If <100, there's a gap.",
+    "depth": "Sum of quantities shows market liquidity",
+    "example": "[22, 15] means 15 contracts available at 22 cents YES"
+  }
+}

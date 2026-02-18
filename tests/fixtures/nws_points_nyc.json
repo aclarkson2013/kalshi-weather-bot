@@ -1,0 +1,47 @@
+{
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "s": "https://schema.org/"
+    }
+  ],
+  "id": "https://api.weather.gov/points/40.7831,-73.9712",
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [-73.9712, 40.7831]
+  },
+  "properties": {
+    "@id": "https://api.weather.gov/points/40.7831,-73.9712",
+    "cwa": "OKX",
+    "forecastOffice": "https://api.weather.gov/offices/OKX",
+    "gridId": "OKX",
+    "gridX": 33,
+    "gridY": 37,
+    "forecast": "https://api.weather.gov/gridpoints/OKX/33,37/forecast",
+    "forecastHourly": "https://api.weather.gov/gridpoints/OKX/33,37/forecast/hourly",
+    "forecastGridData": "https://api.weather.gov/gridpoints/OKX/33,37",
+    "observationStations": "https://api.weather.gov/gridpoints/OKX/33,37/stations",
+    "relativeLocation": {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-73.97, 40.78]
+      },
+      "properties": {
+        "city": "New York",
+        "state": "NY",
+        "distance": {
+          "unitCode": "wmoUnit:m",
+          "value": 715.0
+        }
+      }
+    },
+    "forecastZone": "https://api.weather.gov/zones/forecast/NYZ072",
+    "county": "https://api.weather.gov/zones/county/NYC061",
+    "fireWeatherZone": "https://api.weather.gov/zones/fire/NYZ212",
+    "timeZone": "America/New_York",
+    "radarStation": "KOKX"
+  }
+}

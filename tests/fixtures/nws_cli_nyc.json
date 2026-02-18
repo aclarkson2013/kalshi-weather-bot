@@ -1,0 +1,44 @@
+{
+  "_description": "Simulated NWS Daily Climate Report (CLI) data for NYC Central Park. The real CLI is a text report; this JSON represents the parsed/normalized version our code produces.",
+  "station": "NYC",
+  "station_name": "NEW YORK CENTRAL PARK",
+  "station_id": "KNYC",
+  "report_date": "2025-02-15",
+  "temperature": {
+    "max_f": 56,
+    "min_f": 39,
+    "avg_f": 47.5,
+    "departure_from_normal_f": 3.0,
+    "max_time": "14:23",
+    "min_time": "06:15"
+  },
+  "precipitation": {
+    "total_inches": 0.0,
+    "departure_from_normal_inches": -0.04
+  },
+  "wind": {
+    "max_sustained_mph": 18,
+    "max_gust_mph": 28,
+    "max_gust_direction": "SW",
+    "avg_speed_mph": 9.5
+  },
+  "sky_cover": {
+    "avg_pct": 45,
+    "description": "Partly Cloudy"
+  },
+  "humidity": {
+    "avg_pct": 52,
+    "min_pct": 35,
+    "max_pct": 68
+  },
+  "pressure": {
+    "sea_level_mb": 1018.5
+  },
+  "_settlement_notes": {
+    "measurement_period": "12:00 AM - 11:59 PM LOCAL STANDARD TIME (EST, NOT EDT)",
+    "max_temp_determines_bracket": "The max_f value (56) is what Kalshi uses for settlement",
+    "settlement_bracket": "55-56°F (B3) — because 56 falls in the 55-56 range",
+    "bracket_boundaries": "B1: ≤52, B2: 53-54, B3: 55-56, B4: 57-58, B5: 59-60, B6: ≥61",
+    "winning_market": "KXHIGHNY-25FEB15-B3 YES holders win $1.00, all other brackets pay $0"
+  }
+}

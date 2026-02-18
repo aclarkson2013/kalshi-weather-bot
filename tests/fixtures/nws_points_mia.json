@@ -1,0 +1,33 @@
+{
+  "id": "https://api.weather.gov/points/25.7959,-80.2870",
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [-80.2870, 25.7959]
+  },
+  "properties": {
+    "@id": "https://api.weather.gov/points/25.7959,-80.2870",
+    "cwa": "MFL",
+    "forecastOffice": "https://api.weather.gov/offices/MFL",
+    "gridId": "MFL",
+    "gridX": 74,
+    "gridY": 52,
+    "forecast": "https://api.weather.gov/gridpoints/MFL/74,52/forecast",
+    "forecastHourly": "https://api.weather.gov/gridpoints/MFL/74,52/forecast/hourly",
+    "forecastGridData": "https://api.weather.gov/gridpoints/MFL/74,52",
+    "observationStations": "https://api.weather.gov/gridpoints/MFL/74,52/stations",
+    "relativeLocation": {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-80.29, 25.80]
+      },
+      "properties": {
+        "city": "Miami",
+        "state": "FL"
+      }
+    },
+    "timeZone": "America/New_York",
+    "radarStation": "KAMX"
+  }
+}

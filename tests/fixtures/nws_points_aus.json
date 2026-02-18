@@ -1,0 +1,33 @@
+{
+  "id": "https://api.weather.gov/points/30.1945,-97.6699",
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [-97.6699, 30.1945]
+  },
+  "properties": {
+    "@id": "https://api.weather.gov/points/30.1945,-97.6699",
+    "cwa": "EWX",
+    "forecastOffice": "https://api.weather.gov/offices/EWX",
+    "gridId": "EWX",
+    "gridX": 155,
+    "gridY": 90,
+    "forecast": "https://api.weather.gov/gridpoints/EWX/155,90/forecast",
+    "forecastHourly": "https://api.weather.gov/gridpoints/EWX/155,90/forecast/hourly",
+    "forecastGridData": "https://api.weather.gov/gridpoints/EWX/155,90",
+    "observationStations": "https://api.weather.gov/gridpoints/EWX/155,90/stations",
+    "relativeLocation": {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-97.67, 30.19]
+      },
+      "properties": {
+        "city": "Austin",
+        "state": "TX"
+      }
+    },
+    "timeZone": "America/Chicago",
+    "radarStation": "KEWX"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "_description": "Station configuration reference for all 4 cities. This mirrors the StationConfig dataclass in backend/weather/stations.py.",
+  "stations": {
+    "NYC": {
+      "city_code": "NYC",
+      "city_name": "New York City",
+      "station_name": "Central Park",
+      "nws_station_id": "KNYC",
+      "latitude": 40.7831,
+      "longitude": -73.9712,
+      "timezone": "America/New_York",
+      "utc_offset_standard": -5,
+      "nws_grid_office": "OKX",
+      "nws_grid_x": 33,
+      "nws_grid_y": 37,
+      "kalshi_city_code": "NY",
+      "kalshi_series_ticker": "KXHIGHNY"
+    },
+    "CHI": {
+      "city_code": "CHI",
+      "city_name": "Chicago",
+      "station_name": "Midway Airport",
+      "nws_station_id": "KMDW",
+      "latitude": 41.7868,
+      "longitude": -87.7522,
+      "timezone": "America/Chicago",
+      "utc_offset_standard": -6,
+      "nws_grid_office": "LOT",
+      "nws_grid_x": 65,
+      "nws_grid_y": 60,
+      "kalshi_city_code": "CHI",
+      "kalshi_series_ticker": "KXHIGHCHI"
+    },
+    "MIA": {
+      "city_code": "MIA",
+      "city_name": "Miami",
+      "station_name": "Miami International Airport",
+      "nws_station_id": "KMIA",
+      "latitude": 25.7959,
+      "longitude": -80.2870,
+      "timezone": "America/New_York",
+      "utc_offset_standard": -5,
+      "nws_grid_office": "MFL",
+      "nws_grid_x": 74,
+      "nws_grid_y": 52,
+      "kalshi_city_code": "MIA",
+      "kalshi_series_ticker": "KXHIGHMIA"
+    },
+    "AUS": {
+      "city_code": "AUS",
+      "city_name": "Austin",
+      "station_name": "Camp Mabry",
+      "nws_station_id": "KATT",
+      "latitude": 30.1945,
+      "longitude": -97.6699,
+      "timezone": "America/Chicago",
+      "utc_offset_standard": -6,
+      "nws_grid_office": "EWX",
+      "nws_grid_x": 155,
+      "nws_grid_y": 90,
+      "kalshi_city_code": "AUS",
+      "kalshi_series_ticker": "KXHIGHAUS"
+    }
+  }
+}

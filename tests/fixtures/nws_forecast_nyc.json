@@ -1,0 +1,115 @@
+{
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "wx": "https://api.weather.gov/ontology#"
+    }
+  ],
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[[-73.99, 40.79], [-73.96, 40.79], [-73.95, 40.77], [-73.98, 40.77], [-73.99, 40.79]]]
+  },
+  "properties": {
+    "updated": "2025-02-14T15:30:00+00:00",
+    "units": "us",
+    "forecastGenerator": "BaselineForecastGenerator",
+    "generatedAt": "2025-02-14T16:00:00+00:00",
+    "updateTime": "2025-02-14T15:30:00+00:00",
+    "validTimes": "2025-02-14T09:00:00+00:00/P7DT15H",
+    "elevation": { "unitCode": "wmoUnit:m", "value": 46.0 },
+    "periods": [
+      {
+        "number": 1,
+        "name": "Today",
+        "startTime": "2025-02-14T10:00:00-05:00",
+        "endTime": "2025-02-14T18:00:00-05:00",
+        "isDaytime": true,
+        "temperature": 54,
+        "temperatureUnit": "F",
+        "temperatureTrend": "falling",
+        "probabilityOfPrecipitation": { "unitCode": "wmoUnit:percent", "value": 10 },
+        "dewpoint": { "unitCode": "wmoUnit:degC", "value": 5.0 },
+        "relativeHumidity": { "unitCode": "wmoUnit:percent", "value": 55 },
+        "windSpeed": "10 mph",
+        "windDirection": "NW",
+        "icon": "https://api.weather.gov/icons/land/day/few?size=medium",
+        "shortForecast": "Mostly Sunny",
+        "detailedForecast": "Mostly sunny, with a high near 54. Northwest wind around 10 mph."
+      },
+      {
+        "number": 2,
+        "name": "Tonight",
+        "startTime": "2025-02-14T18:00:00-05:00",
+        "endTime": "2025-02-15T06:00:00-05:00",
+        "isDaytime": false,
+        "temperature": 38,
+        "temperatureUnit": "F",
+        "temperatureTrend": null,
+        "probabilityOfPrecipitation": { "unitCode": "wmoUnit:percent", "value": 5 },
+        "dewpoint": { "unitCode": "wmoUnit:degC", "value": 2.0 },
+        "relativeHumidity": { "unitCode": "wmoUnit:percent", "value": 65 },
+        "windSpeed": "5 mph",
+        "windDirection": "N",
+        "icon": "https://api.weather.gov/icons/land/night/clear?size=medium",
+        "shortForecast": "Clear",
+        "detailedForecast": "Clear, with a low around 38. North wind around 5 mph."
+      },
+      {
+        "number": 3,
+        "name": "Saturday",
+        "startTime": "2025-02-15T06:00:00-05:00",
+        "endTime": "2025-02-15T18:00:00-05:00",
+        "isDaytime": true,
+        "temperature": 56,
+        "temperatureUnit": "F",
+        "temperatureTrend": null,
+        "probabilityOfPrecipitation": { "unitCode": "wmoUnit:percent", "value": 20 },
+        "dewpoint": { "unitCode": "wmoUnit:degC", "value": 6.0 },
+        "relativeHumidity": { "unitCode": "wmoUnit:percent", "value": 50 },
+        "windSpeed": "8 mph",
+        "windDirection": "SW",
+        "icon": "https://api.weather.gov/icons/land/day/sct?size=medium",
+        "shortForecast": "Partly Sunny",
+        "detailedForecast": "Partly sunny, with a high near 56. Southwest wind around 8 mph."
+      },
+      {
+        "number": 4,
+        "name": "Saturday Night",
+        "startTime": "2025-02-15T18:00:00-05:00",
+        "endTime": "2025-02-16T06:00:00-05:00",
+        "isDaytime": false,
+        "temperature": 42,
+        "temperatureUnit": "F",
+        "temperatureTrend": null,
+        "probabilityOfPrecipitation": { "unitCode": "wmoUnit:percent", "value": 30 },
+        "dewpoint": { "unitCode": "wmoUnit:degC", "value": 4.0 },
+        "relativeHumidity": { "unitCode": "wmoUnit:percent", "value": 60 },
+        "windSpeed": "6 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/night/bkn?size=medium",
+        "shortForecast": "Mostly Cloudy",
+        "detailedForecast": "Mostly cloudy, with a low around 42."
+      },
+      {
+        "number": 5,
+        "name": "Sunday",
+        "startTime": "2025-02-16T06:00:00-05:00",
+        "endTime": "2025-02-16T18:00:00-05:00",
+        "isDaytime": true,
+        "temperature": 58,
+        "temperatureUnit": "F",
+        "temperatureTrend": null,
+        "probabilityOfPrecipitation": { "unitCode": "wmoUnit:percent", "value": 40 },
+        "dewpoint": { "unitCode": "wmoUnit:degC", "value": 8.0 },
+        "relativeHumidity": { "unitCode": "wmoUnit:percent", "value": 55 },
+        "windSpeed": "12 mph",
+        "windDirection": "SSW",
+        "icon": "https://api.weather.gov/icons/land/day/rain_showers?size=medium",
+        "shortForecast": "Chance Rain Showers",
+        "detailedForecast": "A chance of rain showers. Partly sunny, with a high near 58."
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "https://api.weather.gov/points/41.7868,-87.7522",
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [-87.7522, 41.7868]
+  },
+  "properties": {
+    "@id": "https://api.weather.gov/points/41.7868,-87.7522",
+    "cwa": "LOT",
+    "forecastOffice": "https://api.weather.gov/offices/LOT",
+    "gridId": "LOT",
+    "gridX": 65,
+    "gridY": 60,
+    "forecast": "https://api.weather.gov/gridpoints/LOT/65,60/forecast",
+    "forecastHourly": "https://api.weather.gov/gridpoints/LOT/65,60/forecast/hourly",
+    "forecastGridData": "https://api.weather.gov/gridpoints/LOT/65,60",
+    "observationStations": "https://api.weather.gov/gridpoints/LOT/65,60/stations",
+    "relativeLocation": {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-87.75, 41.79]
+      },
+      "properties": {
+        "city": "Chicago",
+        "state": "IL"
+      }
+    },
+    "timeZone": "America/Chicago",
+    "radarStation": "KLOT"
+  }
+}

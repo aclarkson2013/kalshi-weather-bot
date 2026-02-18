@@ -1,0 +1,56 @@
+{
+  "latitude": 40.78,
+  "longitude": -73.97,
+  "generationtime_ms": 2.5,
+  "utc_offset_seconds": -18000,
+  "timezone": "America/New_York",
+  "timezone_abbreviation": "EST",
+  "elevation": 46.0,
+  "daily_units": {
+    "time": "iso8601",
+    "temperature_2m_max": "°C",
+    "temperature_2m_min": "°C",
+    "apparent_temperature_max": "°C",
+    "apparent_temperature_min": "°C",
+    "precipitation_sum": "mm",
+    "precipitation_probability_max": "%",
+    "windspeed_10m_max": "km/h",
+    "windgusts_10m_max": "km/h",
+    "winddirection_10m_dominant": "°",
+    "shortwave_radiation_sum": "MJ/m²",
+    "et0_fao_evapotranspiration": "mm"
+  },
+  "daily": {
+    "time": [
+      "2025-02-14",
+      "2025-02-15",
+      "2025-02-16",
+      "2025-02-17",
+      "2025-02-18",
+      "2025-02-19",
+      "2025-02-20"
+    ],
+    "temperature_2m_max": [12.2, 13.5, 14.6, 11.8, 10.5, 12.0, 13.2],
+    "temperature_2m_min": [3.5, 4.2, 5.8, 3.0, 2.1, 3.8, 4.5],
+    "apparent_temperature_max": [10.1, 11.5, 12.8, 9.5, 8.2, 10.0, 11.3],
+    "apparent_temperature_min": [0.5, 1.2, 3.0, -0.5, -1.2, 0.8, 1.5],
+    "precipitation_sum": [0.0, 0.0, 2.5, 5.0, 0.5, 0.0, 0.0],
+    "precipitation_probability_max": [10, 20, 45, 60, 25, 10, 5],
+    "windspeed_10m_max": [18.5, 15.0, 22.0, 28.0, 20.0, 12.0, 14.0],
+    "windgusts_10m_max": [35.0, 28.0, 42.0, 55.0, 38.0, 22.0, 25.0],
+    "winddirection_10m_dominant": [315, 225, 200, 270, 300, 180, 210],
+    "shortwave_radiation_sum": [8.5, 7.2, 4.5, 3.0, 6.8, 9.0, 8.0],
+    "et0_fao_evapotranspiration": [1.5, 1.3, 0.9, 0.7, 1.2, 1.6, 1.4]
+  },
+  "_comment": "NOTE: Open-Meteo returns temperatures in Celsius. Convert to Fahrenheit: F = C * 9/5 + 32. Feb 15 max: 13.5°C = 56.3°F",
+  "_models_query_example": "To get multi-model forecasts, query with &models=gfs_seamless,ecmwf_ifs025,icon_seamless,gem_seamless,jma_seamless",
+  "_multi_model_response_format": {
+    "daily": {
+      "temperature_2m_max_gfs_seamless": [12.0, 13.2, 14.3],
+      "temperature_2m_max_ecmwf_ifs025": [12.5, 13.8, 14.9],
+      "temperature_2m_max_icon_seamless": [12.1, 13.4, 14.5],
+      "temperature_2m_max_gem_seamless": [11.8, 13.0, 14.1],
+      "temperature_2m_max_jma_seamless": [12.3, 13.6, 14.7]
+    }
+  }
+}
