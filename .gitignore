@@ -32,6 +32,8 @@ Thumbs.db
 node_modules/
 .next/
 out/
+frontend/public/sw.js
+frontend/public/workbox-*.js
 
 # Data files
 *.csv
