@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 # Boz Weather Trader
 
-**Version:** 0.4
+**Version:** 0.5
 **Date:** February 17, 2026
 **Status:** Draft - In Review
 
@@ -474,6 +474,9 @@ Your Machine (homelab / cloud VPS)
 - [ ] **Risk controls** - Max position size (default $1), daily loss limit, min EV threshold, adjustable cooldown periods
 - [ ] **Trade logging** - Full audit trail of every trade placed with reasoning
 - [ ] **Trade post-mortems** - Auto-generated executive summary for each trade after settlement (see Section 3.6)
+- [ ] **Structured logging** - Module-tagged, leveled logs to stdout + database (see Section 8.3)
+- [ ] **Unit + safety tests** - Every module ships with tests; safety tests for risk limits, key security, stale data (see Section 8)
+- [ ] **CI/CD pipeline** - GitHub Actions: lint, unit tests, integration tests, coverage checks on every push
 - [ ] **Docker Compose deployment** - One-command self-hosted setup
 - [ ] **Market type selector UI** - High Temp active, others show "Coming Soon"
 
@@ -483,6 +486,7 @@ Your Machine (homelab / cloud VPS)
 - [ ] **Push notifications** - Web push for trade executions, settlements, alerts
 - [ ] **Performance analytics** - Cumulative P&L charts, win rate, ROI per city
 - [ ] **PWA install prompt** - Encourage users to add to home screen
+- [ ] **Log viewer in dashboard** - Real-time log streaming with filters by module/level/time
 - [ ] **One-click cloud deploy** - Railway / Fly.io / Oracle Cloud deploy guides in README
 
 ### 4.2 Phase 2 (Post-MVP)
@@ -627,7 +631,166 @@ User opens PWA → sees trade queue
 
 ---
 
-## 8. Success Metrics
+## 8. Testing & Logging Strategy
+
+### 8.1 Testing Philosophy
+
+**Every module ships with tests. No exceptions.** Each sub-agent writes tests alongside its code — testing is not a separate phase, it's part of building each feature. Code is not considered complete until its tests pass.
+
+**Test framework:** pytest (Python backend) + Jest/Vitest (Next.js frontend)
+
+### 8.2 Test Layers
+
+#### Layer 1: Unit Tests (written by each agent alongside code)
+
+Every function, class, and module gets unit tests. External APIs are mocked — tests never hit real NWS, Open-Meteo, or Kalshi during testing.
+
+| Module | Example Unit Tests |
+|--------|--------------------|
+| **Weather Pipeline** | NWS response parsing, Open-Meteo data normalization, missing data handling, timezone conversion, stale data detection |
+| **Kalshi Client** | RSA signature generation, order payload construction, market data parsing, error handling for rate limits / auth failures |
+| **Prediction Engine** | Bracket probability distribution sums to 100%, forecast error distribution calculation, ensemble weighting, edge case temps (0°F, 100°F+) |
+| **Trading Engine** | EV calculation accuracy, risk limit enforcement (max position, daily loss), cooldown trigger/reset logic, trade queue state machine (PENDING→APPROVED→EXECUTED) |
+| **Frontend** | Component rendering, onboarding flow step transitions, settings form validation, trade approval UI states |
+
+**Coverage target:** > 80% line coverage for backend, > 70% for frontend
+
+#### Layer 2: Integration Tests (written during module integration)
+
+Tests that verify modules work correctly together. These use real database containers (via Docker) but mock external APIs.
+
+| Integration Test | What It Verifies |
+|-----------------|-----------------|
+| Weather → Prediction | Weather pipeline output correctly feeds into prediction engine; schema matches |
+| Prediction → Trading | Probability distribution correctly compared to market prices; EV calculation uses correct inputs |
+| Trading → Kalshi Client | Trading engine correctly calls Kalshi client methods; order payloads are valid |
+| Trading → Risk Controls | Risk limits actually stop trades (daily loss hit → no more trades; cooldown active → trades queued not executed) |
+| Backend → Database | Data persists correctly; encrypted keys can be stored and retrieved; trade history is queryable |
+| Frontend → Backend API | API responses render correctly in dashboard; onboarding flow works end-to-end |
+
+#### Layer 3: Simulation / End-to-End Tests (pre-launch validation)
+
+Replay historical data through the entire system to verify the full pipeline works correctly.
+
+```
+Historical Simulation Test:
+  1. Load 30 days of historical NWS + Open-Meteo forecast data
+  2. Load corresponding Kalshi market prices (snapshots)
+  3. Run prediction engine → verify probabilities are reasonable
+  4. Run trading engine → verify it identifies correct +EV trades
+  5. Simulate order execution → verify orders would have been valid
+  6. Load actual NWS CLI settlements → verify P&L calculation is correct
+  7. Generate post-mortems → verify they contain accurate data
+
+  PASS CRITERIA: Full pipeline runs without errors, P&L matches
+  manual calculation, no trades violate risk limits
+```
+
+This simulation doubles as the **backtesting module** in Phase 2.
+
+#### Layer 4: Safety Tests (critical for a trading bot)
+
+Specific tests to ensure the bot can't do anything dangerous:
+
+| Safety Test | What It Prevents |
+|-------------|-----------------|
+| Max position size enforced | Bot can't accidentally buy 1000 contracts instead of 1 |
+| Daily loss limit enforced | Bot stops trading after hitting the loss limit, even if +EV trades exist |
+| Cooldown actually pauses trading | After N consecutive losses, bot pauses — doesn't keep trading |
+| Invalid orders rejected | Malformed orders never reach Kalshi API |
+| Encrypted keys never leaked | API keys don't appear in logs, error messages, API responses, or frontend |
+| Stale data stops trading | If weather data is > 2 hours old, bot pauses and alerts user |
+| Network failure handling | If Kalshi API is unreachable, bot queues orders and retries — doesn't crash |
+
+### 8.3 Structured Logging
+
+Every step of the system produces structured logs for debugging and audit trails. Logs are written to both stdout (Docker logs) and PostgreSQL (queryable history).
+
+**Log Format:**
+```
+[TIMESTAMP]  [LEVEL]  [MODULE]  [MESSAGE]  {structured_data}
+
+Examples:
+[2026-02-17 10:00:01] INFO   WEATHER   Fetched NWS forecast for NYC         {"city":"NYC","high_f":55,"source":"NWS","model_run":"2026-02-17T06:00Z"}
+[2026-02-17 10:00:02] INFO   WEATHER   Fetched Open-Meteo ensemble for NYC  {"city":"NYC","high_f":53.8,"models":["GFS","ECMWF","ICON"],"source":"Open-Meteo"}
+[2026-02-17 10:00:03] INFO   MODEL     Generated bracket probabilities      {"city":"NYC","brackets":[8,15,28,31,12,6],"confidence":"HIGH"}
+[2026-02-17 10:00:04] INFO   MARKET    Fetched Kalshi market prices          {"city":"NYC","prices":[0.05,0.12,0.22,0.35,0.18,0.08],"event":"KXHIGHNY-26FEB17"}
+[2026-02-17 10:00:04] INFO   TRADING   EV calculation complete               {"city":"NYC","bracket":3,"model_prob":0.28,"market_price":0.22,"ev":0.06,"action":"BUY_YES"}
+[2026-02-17 10:00:05] INFO   ORDER     Placed limit order on Kalshi          {"city":"NYC","side":"YES","bracket":"53-54°F","price":0.22,"qty":1,"order_id":"abc123"}
+[2026-02-17 10:00:05] INFO   RISK      Position update                       {"daily_exposure":0.22,"max_daily":25.00,"pct_used":"0.9%"}
+[2026-02-17 10:00:05] WARN   RISK      Approaching daily limit               {"daily_exposure":22.50,"max_daily":25.00,"pct_used":"90%"}
+[2026-02-17 10:00:06] ERROR  KALSHI    Order rejected by Kalshi              {"order_id":"abc123","reason":"insufficient_balance","kalshi_error_code":"ERR_402"}
+[2026-02-17 10:00:06] INFO   COOLDOWN  Cooldown activated                    {"trigger":"consecutive_losses","count":3,"pause_until":"2026-02-18T00:00:00"}
+```
+
+**Log Levels:**
+| Level | When Used |
+|-------|-----------|
+| DEBUG | Detailed internal state (only in development) |
+| INFO | Normal operations: data fetched, predictions made, trades placed |
+| WARN | Approaching limits, stale data, degraded performance |
+| ERROR | Failed operations: API errors, order rejections, data fetch failures |
+| CRITICAL | System-breaking issues: database down, all APIs unreachable, risk limit breach |
+
+**Log Modules:**
+| Module Tag | What It Covers |
+|------------|---------------|
+| WEATHER | NWS/Open-Meteo data fetching, parsing, storage |
+| MODEL | Prediction engine, probability calculations, ensemble weighting |
+| MARKET | Kalshi market data fetching, bracket discovery, price snapshots |
+| TRADING | EV calculations, trade decisions, queue management |
+| ORDER | Order placement, fills, cancellations on Kalshi |
+| RISK | Position limits, daily loss tracking, cooldown activation/reset |
+| COOLDOWN | Cooldown timer start/stop/reset events |
+| AUTH | API key validation, session management (never logs key values) |
+| SETTLE | NWS CLI report fetching, settlement processing, P&L calculation |
+| POSTMORTEM | Trade post-mortem generation |
+| SYSTEM | Docker health, scheduler status, database connectivity |
+
+### 8.4 Log Viewer in Dashboard
+
+The PWA dashboard includes a **Log Viewer** page where users can:
+- View real-time logs as they stream in
+- Filter by module (WEATHER, TRADING, ORDER, etc.)
+- Filter by level (show only WARN + ERROR)
+- Filter by time range
+- Search log messages
+- Export logs as CSV/JSON for debugging
+
+### 8.5 CI/CD Pipeline
+
+Tests run automatically on every commit via GitHub Actions:
+
+```
+On every push / PR:
+  1. Lint: ruff (Python) + ESLint (TypeScript)
+  2. Unit tests: pytest (backend) + Jest (frontend)
+  3. Integration tests: docker-compose up test containers
+  4. Safety tests: run full safety test suite
+  5. Coverage report: fail if below thresholds (80% backend, 70% frontend)
+
+On merge to main:
+  6. Build Docker images
+  7. Run simulation test against 7 days of historical data
+  8. Tag release if all pass
+```
+
+### 8.6 Testing Requirements Per Agent
+
+Each sub-agent must deliver code WITH passing tests. This is the definition of "done":
+
+| Agent | Code Deliverable | Test Deliverable |
+|-------|-----------------|-----------------|
+| **Agent 1** (Weather) | `backend/weather/` | `tests/weather/` — unit tests for all fetchers, parsers, normalizers |
+| **Agent 2** (Kalshi) | `backend/kalshi/` | `tests/kalshi/` — unit tests for auth, client methods, error handling |
+| **Agent 3** (Prediction) | `backend/prediction/` | `tests/prediction/` — unit tests for models, bracket calculator, ensemble |
+| **Agent 4** (Trading) | `backend/trading/` | `tests/trading/` — unit tests for EV calc, risk controls, cooldown, trade queue + safety tests |
+| **Agent 5** (Frontend) | `frontend/` | `frontend/__tests__/` — component tests, flow tests, API mocking |
+| **Integration** (me) | Wiring + Docker | `tests/integration/` — cross-module tests, simulation test |
+
+---
+
+## 9. Success Metrics
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
@@ -642,7 +805,7 @@ User opens PWA → sees trade queue
 
 ---
 
-## 9. Decisions Made
+## 10. Decisions Made
 
 | Question | Decision | Rationale |
 |----------|----------|-----------|
@@ -657,10 +820,12 @@ User opens PWA → sees trade queue
 | Authentication | RSA API key pair only (no email/password) | Most secure — app never touches user's Kalshi password |
 | Cooldown periods | User-adjustable (0/off to 24 hours per loss, consecutive loss threshold adjustable) | Flexibility for different risk tolerances |
 | Trade post-mortems | Auto-generated after every settlement | Transparency — users understand why trades won or lost |
+| Testing strategy | Tests required with every module; 4 test layers; CI/CD pipeline | Trading bot — bugs cost real money. No code ships without tests. |
+| Logging | Structured, module-tagged logs to stdout + DB; log viewer in dashboard | Full auditability and debugging for every trade decision |
 
 ---
 
-## 10. Remaining Open Questions
+## 11. Remaining Open Questions
 
 1. **Kalshi API tier**: Do users need Premier tier for full API access, or does basic work? Need to verify.
 2. **Multi-user on single instance**: If self-hosting, should one Docker instance support multiple users, or is it one-instance-per-user?
@@ -669,7 +834,7 @@ User opens PWA → sees trade queue
 
 ---
 
-## 11. Risks & Mitigations
+## 12. Risks & Mitigations
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
@@ -684,9 +849,9 @@ User opens PWA → sees trade queue
 
 ---
 
-## 12. Development Strategy
+## 13. Development Strategy
 
-### 12.1 Sub-Agent Architecture (Claude Code)
+### 13.1 Sub-Agent Architecture (Claude Code)
 
 This project is well-suited for **parallel development using Claude Code sub-agents**. The codebase has clearly separable, independent modules with clean interfaces between them.
 
@@ -717,7 +882,7 @@ Week 7+:   Integration, testing, Docker setup
 - Backend → Frontend: REST API spec (OpenAPI/Swagger, auto-generated from FastAPI)
 - Trading Engine → Trade Post-Mortem: `TradeRecord` schema (all data needed to generate the summary)
 
-### 12.2 Milestones & Timeline (Estimated)
+### 13.2 Milestones & Timeline (Estimated)
 
 #### Phase 1: MVP
 - **Week 1-2**: Project setup, Docker Compose, interface contracts, Agents 1+2 (Weather + Kalshi)
