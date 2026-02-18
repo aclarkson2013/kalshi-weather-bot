@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
-# Kalshi Weather Trading Bot
+# Boz Weather Trader
 
-**Version:** 0.3
+**Version:** 0.4
 **Date:** February 17, 2026
 **Status:** Draft - In Review
 
@@ -10,10 +10,10 @@
 ## 1. Overview
 
 ### 1.1 Problem Statement
-Kalshi offers daily weather prediction markets (high temperature) for 4 major US cities. These markets are highly data-driven — settlement is based on the NWS Daily Climate Report, and weather forecasts from models like GFS, ECMWF, and HRRR are strong predictors of outcomes. Despite this, most retail traders on Kalshi trade manually, relying on gut feel or basic weather app checks. There is an opportunity to build an automated trading bot that leverages weather forecast data and ML models to identify mispriced contracts and execute trades programmatically.
+Kalshi offers daily weather prediction markets (high temperature) for US cities. These markets are highly data-driven — settlement is based on the NWS Daily Climate Report, and weather forecasts from models like GFS, ECMWF, and HRRR are strong predictors of outcomes. Despite this, most retail traders on Kalshi trade manually, relying on gut feel or basic weather app checks. There is an opportunity to build an automated trading bot that leverages weather forecast data and ML models to identify mispriced contracts and execute trades programmatically.
 
 ### 1.2 Product Vision
-A free, self-hostable weather trading bot delivered as a Progressive Web App (PWA). Users connect their Kalshi account via API keys, configure risk preferences and trading mode (manual approval or full auto), and let the bot analyze weather markets and execute trades on their behalf. The bot combines multiple weather data sources, uses statistical/ML models to generate probability distributions for temperature outcomes, compares those to market prices, and trades when it finds edge.
+**Boz Weather Trader** is a free, self-hostable weather trading bot delivered as a Progressive Web App (PWA). Users connect their Kalshi account via API keys, configure risk preferences and trading mode (manual approval or full auto), and let the bot analyze weather markets and execute trades on their behalf. The bot combines multiple weather data sources, uses statistical/ML models to generate probability distributions for temperature outcomes, compares those to market prices, and trades when it finds edge.
 
 ### 1.3 Target Users
 - Retail Kalshi traders interested in weather markets who want automated execution
@@ -26,7 +26,7 @@ A free, self-hostable weather trading bot delivered as a Progressive Web App (PW
 
 ### 1.5 Distribution Strategy
 - **Primary**: Docker Compose — self-host on any machine (homelab, VPS, cloud)
-- **Secondary**: One-click deploy templates for Railway / Fly.io / DigitalOcean ($5-10/mo)
+- **Secondary**: One-click deploy templates for cloud platforms (see Section 3.4 for free and paid options)
 - **Frontend**: Progressive Web App (PWA) — installable on iPhone/Android home screen, push notifications, works offline for cached data, no App Store approval needed
 - **Future**: Native app wrapper (React Native) if demand warrants it
 
@@ -36,7 +36,7 @@ A free, self-hostable weather trading bot delivered as a Progressive Web App (PW
 
 ### 2.1 Kalshi Weather Markets Structure
 
-**Cities & Tickers:**
+**Cities & Tickers (currently available on Kalshi):**
 | City | Event Ticker | NWS Station | Resolution Location |
 |------|-------------|-------------|-------------------|
 | New York City | KXHIGHNY | KNYC | Central Park |
@@ -44,40 +44,74 @@ A free, self-hostable weather trading bot delivered as a Progressive Web App (PW
 | Miami | KXHIGHMIA | KMIA | Miami Intl Airport |
 | Austin | KXHIGHAUS | KAUS | Bergstrom Intl Airport |
 
-**Bracket Structure:**
-- 6 brackets per event (per city per day)
-- Middle 4 brackets: each spans 2 degrees Fahrenheit
-- 2 edge brackets: catch-all for temps above/below the middle range
-- Brackets are usually centered around the forecast high
+> **Note:** These 4 cities are the only daily high temperature markets that Kalshi currently offers. This is a Kalshi platform limitation, not our design choice. If Kalshi adds more cities in the future (e.g., LA, Dallas, Seattle), Boz Weather Trader will automatically support them — our architecture dynamically discovers available markets via the Kalshi API.
 
-**Market Timing:**
-- Markets launch at **10:00 AM ET** the day before the event
-- Markets close on the event day (exact time TBD per market)
-- Settlement occurs the following morning based on the NWS Daily Climate Report
+### 2.2 Bracket Structure
 
-**Contract Mechanics:**
-- Binary contracts: pays $1 if the official high falls in the stated range, $0 otherwise
-- Contract prices range $0.01 - $0.99 (representing implied probability)
-- Can buy YES (it happens) or NO (it doesn't)
+Each daily high temperature event is divided into **6 brackets** (contracts). Exactly one bracket wins each day — the one where the actual NWS-reported high temperature lands.
 
-**Settlement Source:**
-- **Only** the NWS Daily Climate Report (CLI) is used
-- Measurement period: 12:00 AM - 11:59 PM **Local Standard Time** (not daylight saving)
-- Important: During DST, the high occurs between 1:00 AM and 12:59 AM local time the following day
+**Example: NYC forecast high of 55°F**
+```
+Bracket 1:  Below 51°F         → pays $1 if actual high < 51°F
+Bracket 2:  51°F to 52°F       → pays $1 if actual high is 51-52°F
+Bracket 3:  53°F to 54°F       → pays $1 if actual high is 53-54°F
+Bracket 4:  55°F to 56°F       → pays $1 if actual high is 55-56°F  ← forecast center
+Bracket 5:  57°F to 58°F       → pays $1 if actual high is 57-58°F
+Bracket 6:  59°F or above      → pays $1 if actual high ≥ 59°F
+```
 
-### 2.2 Fee Structure
+**How it works:**
+- The **middle 4 brackets** each span exactly 2 degrees Fahrenheit
+- The **2 edge brackets** (top and bottom) are catch-alls for everything above or below
+- Brackets are usually centered around the NWS forecast high, so the predicted temp sits in one of the middle brackets
+- Contract prices reflect what the market thinks the probability is (e.g., $0.35 = the market believes there's a 35% chance the temp lands in that bracket)
+- You can buy **YES** (betting the temp WILL land in that bracket) or **NO** (betting it WON'T)
+- Exactly ONE bracket wins each day — the losing 5 pay $0
+
+**Where Boz Weather Trader finds edge:** If our model calculates a 30% chance for Bracket 3 but the market is pricing it at $0.18 (18%), that's a +EV trade — we buy YES on Bracket 3 because we believe the market is underpricing it.
+
+### 2.3 Market Timing — The Daily Lifecycle
+
+```
+TUESDAY 10:00 AM ET — Kalshi launches WEDNESDAY's weather markets
+  ├── 6 brackets appear for each city (24 total contracts across 4 cities)
+  ├── Prices start forming as traders buy/sell
+  └── Boz Weather Trader fetches brackets, compares to model, starts trading
+
+TUESDAY afternoon/evening — Prices move as forecasts update
+  ├── New weather model runs (GFS, ECMWF) come in every 6-12 hours
+  ├── Boz re-checks weather data every 30 min, re-calculates probabilities
+  └── If model shift creates new +EV opportunities, bot trades/queues them
+
+WEDNESDAY (the actual day) — The weather happens
+  ├── Markets may still be open for some morning trading
+  ├── By afternoon, the daily high has likely been reached
+  └── Markets close (no more trading possible)
+
+THURSDAY morning ~8:00 AM ET — Settlement
+  ├── NWS publishes the Daily Climate Report (CLI)
+  │   e.g., "NYC high: 54°F" measured at Central Park
+  ├── Kalshi settles: Bracket 3 (53-54°F) pays $1, all others pay $0
+  └── Boz records settlement, updates P&L, logs model accuracy
+
+KEY INSIGHT: Markets launch ~24 hours before the event. The further out
+the forecast, the more uncertain it is — and more uncertainty means more
+potential for mispricing that our model can exploit.
+```
+
+### 2.4 Fee Structure
 - Trading fee: ~1% per trade
 - Settlement fee: ~10% of profit
 - Withdrawal fee: ~2%
 
-### 2.3 Available Market Types (Roadmap)
+### 2.5 Available Market Types (Roadmap)
 
-| Market Type | Status | MVP? | Notes |
-|------------|--------|------|-------|
-| **Daily High Temperature** | Active on Kalshi | **YES** | 4 cities, best liquidity, clearest data pipeline |
-| Daily Low Temperature | TBD on Kalshi | No | Coming Soon — add when available |
-| Daily Precipitation | TBD on Kalshi | No | Coming Soon — different data sources needed |
-| Snowfall | Seasonal on Kalshi | No | Coming Soon — winter only |
+| Market Type | Status on Kalshi | In Boz MVP? | Notes |
+|------------|-----------------|-------------|-------|
+| **Daily High Temperature** | Active (4 cities) | **YES** | Best liquidity, clearest data pipeline |
+| Daily Low Temperature | TBD | No | Coming Soon — add when Kalshi offers it |
+| Daily Precipitation | TBD | No | Coming Soon — different data sources needed |
+| Snowfall | Seasonal | No | Coming Soon — winter only |
 | Weekly/Monthly Climate | TBD | No | Coming Soon — longer-term markets |
 
 **MVP focuses on Daily High Temperature only.** The architecture is modular — each market type is a plugin with its own data source, model, and bracket logic. The UI will show a market selector from day one with "Coming Soon" badges on unavailable types. This lets us ship a polished, well-tested product for the most liquid market first, then add markets incrementally once each model is proven profitable.
@@ -105,6 +139,7 @@ A free, self-hostable weather trading bot delivered as a Progressive Web App (PW
         │   - Dashboard               │
         │   - Market selector         │
         │   - Trade approval queue    │
+        │   - Trade post-mortems      │
         │   - Settings / risk config  │
         └──────────────┬──────────────┘
                        │ REST API
@@ -114,6 +149,7 @@ A free, self-hostable weather trading bot delivered as a Progressive Web App (PW
         │   - Trading engine          │
         │   - EV calculator           │
         │   - Risk management         │
+        │   - Trade post-mortem gen   │
         └──────┬──────────┬───────────┘
                │          │
     ┌──────────▼──┐  ┌────▼──────────┐
@@ -215,12 +251,13 @@ This makes adding new market types straightforward without touching the core tra
 - WebSocket connection for real-time price updates
 - Batch order support (up to 20 per request)
 
-**Risk Management:**
-- Maximum position size per market (user-configurable, default: $1 per trade for safety)
-- Maximum daily loss limit (user-configurable)
-- Maximum exposure across all markets
-- Minimum EV threshold to trigger a trade
-- Cooldown period after losses
+**Risk Management (all user-configurable):**
+- Maximum position size per market (default: $1 per trade)
+- Maximum daily loss limit (default: $10)
+- Maximum exposure across all markets (default: $25)
+- Minimum EV threshold to trigger a trade (default: 5%)
+- Cooldown after loss: pause trading after a loss (default: 60 minutes, adjustable from 0/off to 24 hours)
+- Cooldown after consecutive losses: pause for rest of day after N losses in a row (default: 3, adjustable from 0/off to 10)
 - Conservative defaults for new users (small position sizes)
 
 #### 3.2.4 Backend API Server
@@ -230,14 +267,15 @@ This makes adding new market types straightforward without touching the core tra
 - Logging and audit trail for all trades
 - Database for historical data, predictions, and trade records
 - Web push notification service for trade alerts
+- Trade post-mortem generator (runs after settlement)
 
 #### 3.2.5 Web Frontend (PWA Dashboard)
 - **Onboarding**: Step-by-step guided flow to connect Kalshi account (see Section 3.5)
 - **Dashboard**: Overview of active positions, P&L, model predictions
 - **Markets View**: Market type selector (high temp active, others "Coming Soon"), current markets with model probabilities vs. market prices
 - **Trade Queue**: Pending trades awaiting approval (in Manual mode)
-- **Settings**: Trading mode toggle (auto/manual), risk parameters, city selection, notification preferences
-- **Trade History**: Full audit log of all executed trades with reasoning
+- **Trade History & Post-Mortems**: Full audit log of all trades, each with an executive summary explaining why the trade was taken and why it won or lost (see Section 3.6)
+- **Settings**: Trading mode toggle (auto/manual), risk parameters (including cooldown controls), city selection, notification preferences
 - **Performance**: Charts showing cumulative P&L, accuracy metrics, ROI per city
 - **PWA Features**: Installable to home screen, push notifications, offline-capable for cached data
 
@@ -259,8 +297,8 @@ This makes adding new market types straightforward without touching the core tra
 
 #### Option A: Self-Hosted (Docker Compose)
 ```bash
-git clone https://github.com/aclarkson2013/kalshi-weather-bot.git
-cd kalshi-weather-bot
+git clone https://github.com/aclarkson2013/boz-weather-trader.git
+cd boz-weather-trader
 cp .env.example .env  # Configure your settings
 docker-compose up -d
 # Access at http://localhost:3000
@@ -269,23 +307,32 @@ docker-compose up -d
 - Full control over data
 - Zero recurring cost (besides electricity)
 
-#### Option B: One-Click Cloud Deploy
+#### Option B: Cloud Deploy (Free Tiers Available)
+
+**Free options:**
+- **Oracle Cloud Free Tier**: Free forever ARM VM (4 OCPU, 24GB RAM — more than enough)
+- **Google Cloud Free Tier**: f1-micro instance, free forever
+- **Fly.io Free Tier**: Up to 3 shared VMs free
+
+**Paid options ($5-15/month):**
 - **Railway**: One-click deploy button in README
-- **Fly.io**: `fly launch` from repo
+- **Fly.io** (beyond free tier): `fly launch` from repo
 - **DigitalOcean App Platform**: App spec included
-- Estimated cost: $5-15/month depending on provider
+
+> **Note:** The $5-15/month cost is what the cloud platform charges for hosting — Boz Weather Trader itself is free. Think of it like paying for electricity at someone else's house.
 
 ### 3.5 Authentication & Onboarding Flow
 
 **Method: RSA API Key Pair only (no email/password)**
 
-Our app never handles Kalshi passwords. Users generate API keys on Kalshi's website and paste them into our app. This is the most secure approach — our server only ever sees the API key, never the user's login credentials.
+Boz Weather Trader never handles Kalshi passwords. Users generate API keys on Kalshi's website and paste them into our app. This is the most secure approach — our server only ever sees the API key, never the user's login credentials.
 
 **Onboarding Steps (guided in-app):**
 
 ```
 Step 1: Welcome Screen
-  "Connect your Kalshi account to start trading weather markets."
+  "Welcome to Boz Weather Trader.
+   Connect your Kalshi account to start trading weather markets."
   [Get Started] button
 
 Step 2: Generate API Keys (with screenshots/instructions)
@@ -316,6 +363,7 @@ Step 6: Initial Settings
   - Trading mode: Full Auto / Manual Approval (default: Manual)
   - Max trade size: (default: $1.00)
   - Cities to trade: checkboxes (default: all 4)
+  - Cooldown after loss: slider (default: 60 minutes)
   [Start Trading]
 ```
 
@@ -325,6 +373,87 @@ Step 6: Initial Settings
 - Private keys are never logged, never sent to our frontend, never exposed in API responses
 - Users can revoke keys anytime on Kalshi's website (instant kill switch)
 - Session tokens for our app are separate from Kalshi API keys
+
+### 3.6 Trade Post-Mortem (Executive Summary)
+
+After each market settles, Boz Weather Trader automatically generates a structured post-mortem for every trade. This explains **why** the trade was taken and **why** it won or lost — like a mini executive brief for each trade.
+
+**Post-Mortem Template:**
+```
+TRADE #247 — NYC High Temp | Feb 16, 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Result: WIN ✅  |  P&L: +$0.62
+
+WHAT WE TRADED
+  Bought YES on 53-54°F bracket @ $0.38 (1 contract)
+
+WHAT HAPPENED
+  Actual high: 54°F (NWS CLI Report, Central Park)
+  Winning bracket: 53-54°F ✅
+
+WHY WE TOOK THIS TRADE
+  • Our model predicted 34% chance for this bracket
+  • Market was pricing it at 22% ($0.22) — 12 percentage point edge
+  • NWS point forecast said 56°F, but our model weighted the
+    ECMWF run more heavily due to its recent accuracy in NYC
+  • Open-Meteo ensemble average: 54.2°F (closer to our prediction)
+  • Historical forecast error for NYC in February: ±2.1°F std dev
+
+WHY IT WORKED (or DIDN'T WORK)
+  • A cold front moved through faster than the GFS model predicted,
+    keeping temps lower than the NWS consensus
+  • ECMWF's 54°F forecast was spot-on
+  • Market was over-weighting the NWS point forecast and ignoring
+    the European model divergence
+
+MODEL CONFIDENCE AT TIME OF TRADE
+  Confidence: HIGH (model agreement: 3 of 4 sources within 1°F)
+  EV at entry: +$0.12 per contract
+```
+
+**Data captured for each post-mortem:**
+- All weather model forecasts at time of trade (NWS, GFS, ECMWF, etc.)
+- Market price at time of trade vs. model probability
+- Actual settlement temperature and source
+- Which models were most/least accurate
+- Confidence level and EV at entry
+- Position size and P&L
+
+These post-mortems are stored indefinitely and browsable in the Trade History view. Users can filter by city, result (win/loss), confidence level, and date range.
+
+### 3.7 Data Storage Architecture
+
+All data lives inside the Docker setup, on whatever machine hosts the bot.
+
+```
+Your Machine (homelab / cloud VPS)
+  └── Docker
+       ├── Container: backend     (FastAPI — Python app)
+       ├── Container: frontend    (Next.js — PWA dashboard)
+       ├── Container: postgres    (PostgreSQL — all persistent data)
+       ├── Container: redis       (Redis — cache + task queue)
+       └── Container: celery      (Celery worker — scheduled jobs)
+
+       └── Volume: /data/postgres   ← your actual data lives here on disk
+       └── Volume: /data/redis      ← cache data
+```
+
+**Where each type of data is stored:**
+
+| Data Type | Where | Why |
+|-----------|-------|-----|
+| Weather forecasts (historical) | PostgreSQL | Queryable, joinable with trade data |
+| Model predictions | PostgreSQL | Need to compare predictions vs. actuals |
+| Trade history + post-mortems | PostgreSQL | Permanent record, full audit trail |
+| Market price snapshots | PostgreSQL | Historical analysis |
+| NWS CLI settlement reports | PostgreSQL | Ground truth for model accuracy |
+| User API keys (encrypted) | PostgreSQL | AES-256 encrypted at rest |
+| Push notification subscriptions | PostgreSQL | Persistent across restarts |
+| Real-time orderbook data | Redis (cache) | Fast, ephemeral — only need current day |
+| Trade approval queue | Redis + PostgreSQL | Redis for speed, PG for persistence |
+| Celery task state | Redis | Task queue, expires naturally |
+
+**Backup:** The Docker volume (`/data/postgres`) can be backed up by copying it, or by running `pg_dump` on a schedule. We'll include a backup script in the repo.
 
 ---
 
@@ -342,8 +471,9 @@ Step 6: Initial Settings
 - [ ] **Automated trade execution** (Full Auto mode) - Place limit orders on Kalshi when EV threshold is met
 - [ ] **Trade approval queue** (Manual mode) - Queue trades for user review with push notification
 - [ ] **Basic PWA dashboard** - Show active markets, model predictions, current positions, P&L
-- [ ] **Risk controls** - Max position size (default $1), daily loss limit, min EV threshold
+- [ ] **Risk controls** - Max position size (default $1), daily loss limit, min EV threshold, adjustable cooldown periods
 - [ ] **Trade logging** - Full audit trail of every trade placed with reasoning
+- [ ] **Trade post-mortems** - Auto-generated executive summary for each trade after settlement (see Section 3.6)
 - [ ] **Docker Compose deployment** - One-command self-hosted setup
 - [ ] **Market type selector UI** - High Temp active, others show "Coming Soon"
 
@@ -353,7 +483,7 @@ Step 6: Initial Settings
 - [ ] **Push notifications** - Web push for trade executions, settlements, alerts
 - [ ] **Performance analytics** - Cumulative P&L charts, win rate, ROI per city
 - [ ] **PWA install prompt** - Encourage users to add to home screen
-- [ ] **One-click cloud deploy** - Railway / Fly.io deploy buttons in README
+- [ ] **One-click cloud deploy** - Railway / Fly.io / Oracle Cloud deploy guides in README
 
 ### 4.2 Phase 2 (Post-MVP)
 
@@ -403,7 +533,8 @@ Day After (D+1):
   ~08:00 AM - NWS publishes Daily Climate Report (CLI)
   ~09:00 AM - Kalshi settles markets based on CLI
   ~09:30 AM - Record settlement, update P&L, log model accuracy
-             → Push notification: "Yesterday's results: +$X.XX"
+  ~09:35 AM - Generate trade post-mortems for all settled trades
+             → Push notification: "Yesterday's results: +$X.XX — 2 wins, 1 loss"
 ```
 
 ### 5.2 Manual Approval Flow
@@ -427,20 +558,6 @@ User opens PWA → sees trade queue
        │
        └── Expires (configurable, default 30 min) → Trade discarded, logged
 ```
-
-### 5.3 Data Storage
-
-| Data Type | Storage | Retention |
-|-----------|---------|-----------|
-| Weather forecasts | PostgreSQL | 1 year |
-| Model predictions | PostgreSQL | Indefinite |
-| Trade history | PostgreSQL | Indefinite |
-| Market prices (snapshots) | PostgreSQL | 6 months |
-| Real-time orderbook | Redis (cache) | Current day |
-| User API keys | PostgreSQL (encrypted AES-256) | While active |
-| NWS CLI reports | PostgreSQL | Indefinite |
-| Trade approval queue | Redis + PostgreSQL | 24 hours (Redis) / Indefinite (PG) |
-| Push notification subscriptions | PostgreSQL | While active |
 
 ---
 
@@ -529,14 +646,17 @@ User opens PWA → sees trade queue
 
 | Question | Decision | Rationale |
 |----------|----------|-----------|
+| Product name | **Boz Weather Trader** | — |
 | Business model | Free, open-source | Lower barrier to entry, community-driven |
 | Platform | PWA (not native iPhone app) | Cross-platform, no App Store hassle, one codebase |
 | Demo mode | Skip | Owner will test with small trades ($1) on live markets |
-| Hosting | Docker Compose (self-host) + cloud deploy options | Homelab-friendly + accessible to non-technical users |
-| MVP market scope | High temperature only (4 cities) | Best liquidity, clearest pipeline; modular for future expansion |
+| Hosting | Docker Compose (self-host) + cloud deploy options (free & paid) | Homelab-friendly + accessible to non-technical users |
+| MVP market scope | High temperature only (4 cities — all Kalshi currently offers) | Best liquidity, clearest pipeline; modular for future expansion |
 | Trading mode | Toggle: Full Auto or Manual Approval | Each user picks their comfort level |
 | Default trade size | $1 per trade | Conservative default for safety |
-| Authentication | RSA API key pair only (no email/password) | Most secure — app never touches user's Kalshi password. Users generate keys on Kalshi's site and paste into our app. |
+| Authentication | RSA API key pair only (no email/password) | Most secure — app never touches user's Kalshi password |
+| Cooldown periods | User-adjustable (0/off to 24 hours per loss, consecutive loss threshold adjustable) | Flexibility for different risk tolerances |
+| Trade post-mortems | Auto-generated after every settlement | Transparency — users understand why trades won or lost |
 
 ---
 
@@ -553,10 +673,10 @@ User opens PWA → sees trade queue
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
-| Model underperforms → user losses | High | Medium | Backtesting, conservative defaults ($1 trades), loss limits |
+| Model underperforms → user losses | High | Medium | Backtesting, conservative defaults ($1 trades), loss limits, adjustable cooldowns |
 | Kalshi API changes or rate limits | Medium | Low | Abstract API layer, monitor changelog |
 | NWS data delays or errors | High | Low | Fallback to Open-Meteo, alert user, pause trading |
-| Weather model disagreement | Medium | Medium | Ensemble approach, flag low-confidence |
+| Weather model disagreement | Medium | Medium | Ensemble approach, flag low-confidence in post-mortem |
 | Apple blocks PWA features | Low | Low | PWA push works on iOS 16.4+; fallback to email alerts |
 | Regulatory changes | High | Low | Stay compliant with CFTC, monitor Kalshi ToS |
 | Low liquidity in markets | Medium | Medium | Limit orders only, don't force fills |
@@ -564,19 +684,51 @@ User opens PWA → sees trade queue
 
 ---
 
-## 12. Milestones & Timeline (Estimated)
+## 12. Development Strategy
 
-### Phase 1: MVP
-- **Week 1-2**: Project setup, Docker Compose, Kalshi API integration, API key onboarding
-- **Week 3-4**: Weather data pipeline (NWS + Open-Meteo), data storage
-- **Week 5-6**: Prediction model (statistical ensemble), bracket probability engine
-- **Week 7-8**: Trading engine, EV calculator, risk controls, auto/manual toggle
-- **Week 9-10**: Next.js PWA frontend (dashboard, trade queue, settings, market selector)
-- **Week 11-12**: Push notifications, testing, bug fixes, Docker deployment, README
+### 12.1 Sub-Agent Architecture (Claude Code)
 
-### Phase 2: Enhanced
-- **Week 13-16**: XGBoost ML model, performance analytics, backtesting module
-- **Week 17-20**: Kelly sizing, additional market plugins (precipitation, snow), one-click cloud deploy
+This project is well-suited for **parallel development using Claude Code sub-agents**. The codebase has clearly separable, independent modules with clean interfaces between them.
+
+**Recommended Agent Breakdown:**
+
+| Agent | Module | What It Builds | Dependencies |
+|-------|--------|---------------|-------------|
+| **Agent 1** | Weather Data Pipeline | NWS + Open-Meteo fetchers, data normalization, storage | None — can start immediately |
+| **Agent 2** | Kalshi API Client | Auth (RSA signing), market data, order placement, WebSocket | None — can start immediately |
+| **Agent 3** | Prediction Engine | Statistical ensemble, bracket probability calculator, post-mortem data | Needs Agent 1's data format (interface contract) |
+| **Agent 4** | Trading Engine | EV calculator, risk controls, cooldowns, order logic, trade queue | Needs Agent 2's API client (interface contract) |
+| **Agent 5** | Frontend (PWA) | Dashboard, onboarding, trade queue, post-mortems, settings | Needs backend API contracts (can start with mocks) |
+
+**Parallelization Strategy:**
+```
+Week 1-2:  Agent 1 (Weather) + Agent 2 (Kalshi) → run in parallel
+Week 3-4:  Agent 3 (Prediction) + Agent 4 (Trading) → run in parallel
+           (consume outputs from Agents 1 & 2)
+Week 5-6:  Agent 5 (Frontend) → builds against backend APIs
+Week 7+:   Integration, testing, Docker setup
+```
+
+**Why this works:** Each module communicates through well-defined interfaces (function signatures, data schemas, API contracts). We define those contracts upfront, then each agent builds its module independently. Integration happens when the pieces snap together.
+
+**Interface Contracts (defined before coding begins):**
+- Weather Data → Prediction Engine: `WeatherData` schema (temps, humidity, wind, model source, timestamp)
+- Kalshi Client → Trading Engine: `KalshiClient` class interface (get_markets, place_order, get_positions)
+- Backend → Frontend: REST API spec (OpenAPI/Swagger, auto-generated from FastAPI)
+- Trading Engine → Trade Post-Mortem: `TradeRecord` schema (all data needed to generate the summary)
+
+### 12.2 Milestones & Timeline (Estimated)
+
+#### Phase 1: MVP
+- **Week 1-2**: Project setup, Docker Compose, interface contracts, Agents 1+2 (Weather + Kalshi)
+- **Week 3-4**: Agents 3+4 (Prediction + Trading), data storage
+- **Week 5-6**: Agent 5 (Frontend PWA — dashboard, onboarding, trade queue, post-mortems)
+- **Week 7-8**: Integration, risk controls, cooldown logic
+- **Week 9-10**: Push notifications, testing, bug fixes, Docker deployment, README
+
+#### Phase 2: Enhanced
+- **Week 11-14**: XGBoost ML model, performance analytics, backtesting module
+- **Week 15-18**: Kelly sizing, additional market plugins (precipitation, snow), one-click cloud deploy
 
 ---
 
