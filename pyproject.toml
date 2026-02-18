@@ -72,6 +72,7 @@ ignore = [
     "E402",   # Module-level imports in conftest must come after env var setup
     "B017",   # pytest.raises(Exception) is fine for Pydantic validation tests
     "SIM117", # Nested async with is clearer for transaction rollback pattern
+    "B008",   # Depends() in function defaults is the standard FastAPI convention
 ]
 
 [tool.ruff.format]
