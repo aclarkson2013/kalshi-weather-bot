@@ -1,0 +1,17 @@
+# Auto-provision dashboards from the mounted JSON files.
+#
+# Grafana loads all .json files from the configured path on startup.
+# Dashboards are read-only (not editable in UI) to prevent drift.
+
+apiVersion: 1
+
+providers:
+  - name: "Boz Weather Trader"
+    orgId: 1
+    folder: "Boz Weather Trader"
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

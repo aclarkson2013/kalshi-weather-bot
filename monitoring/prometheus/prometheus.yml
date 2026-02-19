@@ -1,0 +1,16 @@
+# Prometheus scrape configuration for Boz Weather Trader.
+#
+# Scrapes the FastAPI backend /metrics endpoint (prometheus_client ASGI app).
+# In Docker Compose, "backend" resolves to the FastAPI service.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "boz-weather-trader"
+    metrics_path: "/metrics/"
+    static_configs:
+      - targets: ["backend:8000"]
+        labels:
+          service: "backend"
