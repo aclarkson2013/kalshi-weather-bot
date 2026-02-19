@@ -28,6 +28,9 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    # Global task timeouts — override per-task where needed
+    task_soft_time_limit=300,  # 5 min: raises SoftTimeLimitExceeded
+    task_time_limit=360,  # 6 min: hard kill (SIGKILL)
 )
 
 # ─── Beat Schedule ───

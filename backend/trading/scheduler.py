@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 from asgiref.sync import async_to_sync
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 
 from backend.common.database import get_task_session
 from backend.common.logging import get_logger
@@ -34,7 +35,13 @@ ET = ZoneInfo("America/New_York")
 # ─── Celery Tasks ───
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=30,
+    soft_time_limit=180,
+    time_limit=240,
+)
 def trading_cycle(self) -> dict:
     """Main trading loop -- runs every 15 minutes via Celery Beat.
 
@@ -54,6 +61,13 @@ def trading_cycle(self) -> dict:
 
     try:
         async_to_sync(_run_trading_cycle)()
+    except SoftTimeLimitExceeded:
+        elapsed = (datetime.now(UTC) - start_time).total_seconds()
+        logger.warning(
+            "Trading cycle hit soft time limit",
+            extra={"data": {"elapsed_seconds": round(elapsed, 1)}},
+        )
+        return {"status": "timeout", "elapsed_seconds": round(elapsed, 1)}
     except Exception as exc:
         logger.error(
             "Trading cycle failed, retrying",
@@ -74,7 +88,7 @@ def trading_cycle(self) -> dict:
     }
 
 
-@shared_task
+@shared_task(soft_time_limit=120, time_limit=180)
 def check_pending_trades() -> dict:
     """Expire stale pending trades in manual mode.
 
@@ -98,7 +112,13 @@ def check_pending_trades() -> dict:
     return {"status": "completed", "expired_count": count}
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60,
+    soft_time_limit=300,
+    time_limit=360,
+)
 def settle_trades(self) -> dict:
     """Check for settled markets and generate post-mortems.
 

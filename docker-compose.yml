@@ -70,6 +70,12 @@ services:
     # Skip migrations — backend entrypoint handles them
     entrypoint: []
     command: celery -A backend.celery_app worker --loglevel=info --concurrency=2
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A backend.celery_app inspect ping --timeout 10"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
 
   # ─── Celery Beat (schedules tasks) ───
   celery-beat:
@@ -83,6 +89,12 @@ services:
     # Skip migrations — backend entrypoint handles them
     entrypoint: []
     command: celery -A backend.celery_app beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import redis; r=redis.from_url('redis://redis:6379/1'); r.ping()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   # ─── Next.js Frontend (PWA) ───
   frontend:

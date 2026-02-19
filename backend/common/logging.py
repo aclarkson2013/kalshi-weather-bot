@@ -57,6 +57,14 @@ class StructuredFormatter(logging.Formatter):
         level = record.levelname
         module_tag = getattr(record, "module_tag", "SYSTEM")
 
+        # Include request ID when available (set by RequestIdMiddleware)
+        try:
+            from backend.common.middleware import request_id_var
+
+            rid = request_id_var.get("")
+        except ImportError:
+            rid = ""
+
         # Extract structured data from extra
         data = getattr(record, "data", None)
         if data is not None:
@@ -70,7 +78,10 @@ class StructuredFormatter(logging.Formatter):
 
         message = _redact_secrets(record.getMessage())
 
-        parts = [timestamp, level, module_tag, message]
+        parts = [timestamp, level]
+        if rid:
+            parts.append(f"rid={rid[:8]}")
+        parts.extend([module_tag, message])
         if data_str:
             parts.append(data_str)
 

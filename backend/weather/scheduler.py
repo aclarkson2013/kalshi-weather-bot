@@ -228,7 +228,13 @@ async def _fetch_cli_reports_async() -> None:
 # ─── Celery Tasks ───
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+    soft_time_limit=240,
+    time_limit=300,
+)
 def fetch_all_forecasts(self) -> dict:
     """Fetch forecasts from all sources for all cities.
 
@@ -269,7 +275,13 @@ def fetch_all_forecasts(self) -> dict:
     }
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=120,
+    soft_time_limit=240,
+    time_limit=300,
+)
 def fetch_cli_reports(self) -> dict:
     """Fetch NWS Daily Climate Reports for settlement verification.
 

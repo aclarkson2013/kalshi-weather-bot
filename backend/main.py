@@ -5,9 +5,12 @@ Run with: uvicorn backend.main:app --reload
 
 from __future__ import annotations
 
+import traceback
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from backend.api.auth import router as auth_router
 from backend.api.dashboard import router as dashboard_router
@@ -18,8 +21,15 @@ from backend.api.performance import router as performance_router
 from backend.api.queue import router as queue_router
 from backend.api.settings import router as settings_router
 from backend.api.trades import router as trades_router
+from backend.common.config import get_settings
 from backend.common.exceptions import BozBaseException
 from backend.common.logging import get_logger
+from backend.common.middleware import (
+    RequestIdMiddleware,
+    RequestLoggingMiddleware,
+    SecurityHeadersMiddleware,
+    request_id_var,
+)
 from backend.kalshi.exceptions import (
     KalshiAuthError,
     KalshiError,
@@ -49,6 +59,11 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Production middleware (last added = outermost = runs first on request)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
     # ─── Exception Handlers ───
 
@@ -114,12 +129,74 @@ def create_app() -> FastAPI:
             },
         )
 
-    # ─── Health Check ───
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Catch-all for unhandled exceptions — log traceback, return 500."""
+        rid = request_id_var.get("")
+        logger.error(
+            f"Unhandled {type(exc).__name__}: {exc}",
+            extra={
+                "data": {
+                    "path": str(request.url),
+                    "request_id": rid,
+                    "traceback": traceback.format_exc(),
+                }
+            },
+        )
+        body: dict = {
+            "error": "InternalServerError",
+            "message": "An unexpected error occurred",
+        }
+        if rid:
+            body["request_id"] = rid
+        return JSONResponse(status_code=500, content=body)
+
+    # ─── Health / Readiness ───
 
     @app.get("/health")
     async def health_check() -> dict:
-        """Health check endpoint for Docker/load balancer."""
+        """Liveness probe — confirms the process is running."""
         return {"status": "ok", "version": "0.1.0"}
+
+    @app.get("/ready")
+    async def readiness_check() -> JSONResponse:
+        """Readiness probe — checks DB and Redis connectivity."""
+        checks: dict[str, str] = {}
+        all_ok = True
+
+        # Database check
+        try:
+            from backend.common.database import _get_engine
+
+            engine = _get_engine()
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception as exc:
+            checks["database"] = f"error: {type(exc).__name__}"
+            all_ok = False
+
+        # Redis check
+        try:
+            import redis.asyncio as aioredis
+
+            settings = get_settings()
+            r = aioredis.from_url(settings.redis_url)
+            await r.ping()
+            await r.aclose()
+            checks["redis"] = "ok"
+        except Exception as exc:
+            checks["redis"] = f"error: {type(exc).__name__}"
+            all_ok = False
+
+        return JSONResponse(
+            status_code=200 if all_ok else 503,
+            content={
+                "status": "ok" if all_ok else "degraded",
+                "version": "0.1.0",
+                "checks": checks,
+            },
+        )
 
     # ─── Router Mounting ───
 
