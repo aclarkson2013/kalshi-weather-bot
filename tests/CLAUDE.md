@@ -52,6 +52,10 @@ tests/
 │   ├── test_executor.py
 │   ├── test_postmortem.py
 │   └── test_safety.py   → CRITICAL: safety tests (risk limits, key security, etc.)
+├── api/                 → API endpoint tests
+│   ├── conftest.py      → API fixtures (api_engine, client, mock_kalshi, factories)
+│   ├── test_auth.py     → Auth validate + disconnect tests (5 tests)
+│   └── test_auth_status.py → Auth status, demo mode, onboarding flow (17 tests)
 ├── e2e/                 → End-to-end smoke tests (real auth path, real middleware)
 │   ├── conftest.py      → E2E fixtures (e2e_engine, authed_client, bare_client, seed helpers)
 │   └── test_smoke.py    → 35 smoke tests across 11 test classes
@@ -1078,7 +1082,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (657 tests, in-memory SQLite, no Docker needed) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (674 tests, in-memory SQLite, no Docker needed) | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 82 tests) | Yes |
 
 **Key design decisions:**
