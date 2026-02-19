@@ -8,6 +8,7 @@ This directory contains all tests for Boz Weather Trader. Tests are organized to
 tests/
 ├── conftest.py          → Shared fixtures (database, mock clients, test data)
 ├── factories.py         → Test data factories for generating realistic test data
+├── test_grafana_dashboards.py → Dashboard JSON validation tests (22 tests)
 ├── fixtures/            → Mock API response JSON files
 │   ├── nws_points_nyc.json
 │   ├── nws_forecast_nyc.json
@@ -1082,7 +1083,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (674 tests, in-memory SQLite, no Docker needed) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (696 tests, in-memory SQLite, no Docker needed) | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 82 tests) | Yes |
 
 **Key design decisions:**
