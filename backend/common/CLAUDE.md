@@ -842,6 +842,14 @@ The Prometheus scrape endpoint is mounted at `/metrics` in `backend/main.py` via
 
 Celery task metrics are collected automatically via signals in `backend/celery_app.py` — no changes to task bodies required. Signals: `task_prerun`, `task_postrun`, `task_failure`, `task_retry`.
 
+### Grafana Dashboards
+
+All metrics defined here are visualized in two auto-provisioned Grafana dashboards (see `monitoring/grafana/dashboards/`):
+- **API Overview** — request rate, error rate, latency percentiles, status distribution
+- **Trading & Weather** — trading cycles, trades by city, risk blocks, weather fetch rates, Celery task performance
+
+Dashboard JSON is validated by `tests/test_grafana_dashboards.py` which checks that all PromQL expressions reference metric names from this file.
+
 ---
 
 ## Rules for Agents

@@ -31,7 +31,17 @@ backend/
 ├── weather/             → Agent 1: Weather data pipeline
 ├── kalshi/              → Agent 2: Kalshi API client
 ├── prediction/          → Agent 3: Prediction engine
-└── trading/             → Agent 4: Trading engine
+├── trading/             → Agent 4: Trading engine
+└── api/                 → FastAPI route handlers (auth, dashboard, settings, trades, etc.)
+```
+
+### Monitoring (sibling directory)
+```
+monitoring/
+├── prometheus/prometheus.yml     → Scrape config (backend:8000/metrics/ every 15s)
+└── grafana/
+    ├── provisioning/             → Auto-provisioned datasources + dashboard provider
+    └── dashboards/               → API Overview + Trading & Weather dashboard JSON
 ```
 
 ## Key Conventions

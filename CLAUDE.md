@@ -18,6 +18,11 @@ backend/
   ├── prediction/  → Agent 3: Statistical ensemble + bracket probabilities
   ├── trading/     → Agent 4: EV calculator, risk controls, trade queue
   └── common/      → Shared schemas, config, database, logging, middleware, metrics
+monitoring/
+  ├── prometheus/  → Prometheus scrape config (scrapes backend:8000/metrics/)
+  └── grafana/     → Grafana provisioning + dashboard JSON files
+      ├── provisioning/  → Auto-provisioned datasources + dashboard provider
+      └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels)
 tests/
   ├── common/      → Unit tests for shared modules (metrics, middleware)
   ├── weather/     → Unit tests for weather pipeline (incl. CLI parser + fetch)
@@ -33,8 +38,8 @@ tests/
 - **Backend:** Python 3.11+, FastAPI, Celery + Redis, PostgreSQL
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
 - **ML/Stats:** scipy, numpy (Gaussian CDF for bracket probabilities)
-- **Monitoring:** prometheus-client (Prometheus metrics via `/metrics` endpoint)
-- **Containerization:** Docker + Docker Compose
+- **Monitoring:** prometheus-client, Prometheus, Grafana (auto-provisioned dashboards)
+- **Containerization:** Docker + Docker Compose (8 services incl. Prometheus + Grafana)
 - **Testing:** pytest (backend), Jest/Vitest (frontend)
 - **CI/CD:** GitHub Actions
 - **Linting:** ruff (Python), ESLint + Prettier (TypeScript)
