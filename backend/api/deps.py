@@ -67,9 +67,11 @@ async def get_kalshi_client(
         An authenticated KalshiClient instance.
     """
     private_key_pem = decrypt_api_key(user.encrypted_private_key)
+    demo = user.demo_mode if user.demo_mode is not None else True
     client = KalshiClient(
         api_key_id=user.kalshi_key_id,
         private_key_pem=private_key_pem,
+        demo=demo,
     )
     try:
         yield client
@@ -98,6 +100,8 @@ def user_to_settings(user: User) -> UserSettings:
     consec = user.consecutive_loss_limit if user.consecutive_loss_limit is not None else 3
     notifs = user.notifications_enabled if user.notifications_enabled is not None else True
 
+    demo = user.demo_mode if user.demo_mode is not None else True
+
     return UserSettings(
         trading_mode=user.trading_mode or "manual",
         max_trade_size_cents=user.max_trade_size_cents or 100,
@@ -107,6 +111,7 @@ def user_to_settings(user: User) -> UserSettings:
         cooldown_per_loss_minutes=cooldown,
         consecutive_loss_limit=consec,
         active_cities=active_cities,
+        demo_mode=demo,
         notifications_enabled=notifs,
     )
 

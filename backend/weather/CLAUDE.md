@@ -9,10 +9,11 @@ Build the weather data fetching, parsing, normalization, and storage layer. You 
 ```
 backend/weather/
 ├── __init__.py
-├── nws.py            -> NWS API client (forecasts, CLI reports, observations)
+├── nws.py            -> NWS API client (forecasts, CLI reports, text fetch)
+├── cli_parser.py     -> NWS CLI text parser (pure, no I/O — regex extraction)
 ├── openmeteo.py      -> Open-Meteo API client (forecasts, historical, multi-model)
 ├── normalizer.py     -> Normalize data from all sources into WeatherData schema
-├── scheduler.py      -> Celery tasks for scheduled data fetching
+├── scheduler.py      -> Celery tasks for scheduled data fetching + Settlement creation
 ├── stations.py       -> NWS station configs for each Kalshi city
 ├── rate_limiter.py   -> Async rate limiter for NWS API
 └── exceptions.py     -> Weather-specific exceptions (StaleDataError, etc.)

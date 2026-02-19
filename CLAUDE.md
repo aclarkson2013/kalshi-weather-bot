@@ -20,10 +20,11 @@ backend/
   └── common/      → Shared schemas, config, database, logging, middleware, metrics
 tests/
   ├── common/      → Unit tests for shared modules (metrics, middleware)
-  ├── weather/     → Unit tests for weather pipeline
+  ├── weather/     → Unit tests for weather pipeline (incl. CLI parser + fetch)
   ├── kalshi/      → Unit tests for Kalshi client
   ├── prediction/  → Unit tests for prediction engine
   ├── trading/     → Unit tests for trading engine + safety tests
+  ├── e2e/         → End-to-end smoke tests (real auth path, real middleware)
   └── integration/ → Cross-module integration tests
 ```
 

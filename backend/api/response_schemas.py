@@ -19,6 +19,7 @@ class AuthValidateRequest(BaseModel):
 
     key_id: str
     private_key: str
+    demo_mode: bool = True  # Default to demo for safety
 
 
 class AuthValidateResponse(BaseModel):
@@ -26,6 +27,16 @@ class AuthValidateResponse(BaseModel):
 
     valid: bool
     balance_cents: int
+    demo_mode: bool
+
+
+class AuthStatusResponse(BaseModel):
+    """Response for checking current authentication status."""
+
+    authenticated: bool
+    user_id: str
+    demo_mode: bool
+    key_id_prefix: str
 
 
 class DashboardData(BaseModel):
@@ -99,3 +110,4 @@ class SettingsUpdate(BaseModel):
     consecutive_loss_limit: int | None = None
     active_cities: list[CityCode] | None = None
     notifications_enabled: bool | None = None
+    demo_mode: bool | None = None

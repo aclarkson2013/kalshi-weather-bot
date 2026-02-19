@@ -92,6 +92,7 @@ class User(Base):
     cooldown_per_loss_minutes = Column(Integer, default=60)
     consecutive_loss_limit = Column(Integer, default=3)
     active_cities = Column(String, default="NYC,CHI,MIA,AUS")  # Comma-separated
+    demo_mode = Column(Boolean, default=True)  # Default to demo for safety
     notifications_enabled = Column(Boolean, default=True)
     push_subscription = Column(Text, nullable=True)  # JSON web push subscription
     created_at = Column(DateTime, default=_utcnow)

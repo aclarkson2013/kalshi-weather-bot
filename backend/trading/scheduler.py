@@ -537,10 +537,11 @@ async def _get_kalshi_client(db, user_id: str) -> object | None:
         from backend.kalshi.client import KalshiClient
 
         private_key_pem = decrypt_api_key(user.encrypted_private_key)
+        demo = user.demo_mode if user.demo_mode is not None else True
         return KalshiClient(
             api_key_id=user.kalshi_key_id,
             private_key_pem=private_key_pem,
-            demo=True,  # Default to demo mode for safety
+            demo=demo,
         )
     except Exception as exc:
         logger.error(

@@ -25,7 +25,9 @@ tests/
 │   ├── test_openmeteo.py
 │   ├── test_normalizer.py
 │   ├── test_stations.py
-│   └── test_scheduler.py
+│   ├── test_scheduler.py
+│   ├── test_cli_parser.py → NWS CLI text parser tests (21 tests)
+│   └── test_cli_fetch.py  → CLI fetch + Settlement record creation tests (16 tests)
 ├── kalshi/              → Unit tests for backend/kalshi/
 │   ├── conftest.py      → Kalshi-specific fixtures (mock API responses, test keys)
 │   ├── test_auth.py

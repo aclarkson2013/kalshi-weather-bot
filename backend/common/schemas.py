@@ -194,4 +194,5 @@ class UserSettings(BaseModel):
     cooldown_per_loss_minutes: int = Field(default=60, ge=0, le=1440)
     consecutive_loss_limit: int = Field(default=3, ge=0, le=10)
     active_cities: list[CityCode] = ["NYC", "CHI", "MIA", "AUS"]
+    demo_mode: bool = True  # Default to demo for safety
     notifications_enabled: bool = True

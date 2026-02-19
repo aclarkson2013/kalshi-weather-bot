@@ -91,7 +91,7 @@ def mock_kalshi() -> AsyncMock:
 # ─── Factory Functions ───
 
 
-def make_user(user_id: str | None = None) -> User:
+def make_user(user_id: str | None = None, demo_mode: bool = True) -> User:
     """Create a User ORM model with encrypted test credentials."""
     return User(
         id=user_id or str(uuid4()),
@@ -105,6 +105,7 @@ def make_user(user_id: str | None = None) -> User:
         cooldown_per_loss_minutes=60,
         consecutive_loss_limit=3,
         active_cities="NYC,CHI,MIA,AUS",
+        demo_mode=demo_mode,
         notifications_enabled=True,
     )
 
