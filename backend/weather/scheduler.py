@@ -18,6 +18,7 @@ from celery import shared_task
 
 from backend.common.database import get_task_session
 from backend.common.logging import get_logger
+from backend.common.metrics import WEATHER_FETCHES_TOTAL
 from backend.common.models import WeatherForecast
 from backend.common.schemas import WeatherData
 from backend.weather.nws import fetch_nws_forecast, fetch_nws_gridpoint
@@ -107,6 +108,7 @@ async def _fetch_all_forecasts_async() -> None:
         try:
             nws_period = await fetch_nws_forecast(city)
             all_forecasts.extend(nws_period)
+            WEATHER_FETCHES_TOTAL.labels(source="NWS", city=city, outcome="success").inc()
             logger.info(
                 "Fetched NWS period forecast",
                 extra={
@@ -118,6 +120,7 @@ async def _fetch_all_forecasts_async() -> None:
                 },
             )
         except Exception as exc:
+            WEATHER_FETCHES_TOTAL.labels(source="NWS", city=city, outcome="error").inc()
             logger.error(
                 "NWS period forecast fetch failed",
                 extra={"data": {"city": city, "error": str(exc)}},
@@ -127,6 +130,7 @@ async def _fetch_all_forecasts_async() -> None:
         try:
             nws_grid = await fetch_nws_gridpoint(city)
             all_forecasts.extend(nws_grid)
+            WEATHER_FETCHES_TOTAL.labels(source="NWS_gridpoint", city=city, outcome="success").inc()
             logger.info(
                 "Fetched NWS gridpoint data",
                 extra={
@@ -137,6 +141,7 @@ async def _fetch_all_forecasts_async() -> None:
                 },
             )
         except Exception as exc:
+            WEATHER_FETCHES_TOTAL.labels(source="NWS_gridpoint", city=city, outcome="error").inc()
             logger.error(
                 "NWS gridpoint fetch failed",
                 extra={"data": {"city": city, "error": str(exc)}},
@@ -146,6 +151,7 @@ async def _fetch_all_forecasts_async() -> None:
         try:
             om_data = await fetch_openmeteo_forecast(city)
             all_forecasts.extend(om_data)
+            WEATHER_FETCHES_TOTAL.labels(source="Open-Meteo", city=city, outcome="success").inc()
             logger.info(
                 "Fetched Open-Meteo forecasts",
                 extra={
@@ -157,6 +163,7 @@ async def _fetch_all_forecasts_async() -> None:
                 },
             )
         except Exception as exc:
+            WEATHER_FETCHES_TOTAL.labels(source="Open-Meteo", city=city, outcome="error").inc()
             logger.error(
                 "Open-Meteo fetch failed",
                 extra={"data": {"city": city, "error": str(exc)}},
@@ -209,6 +216,7 @@ async def _fetch_cli_reports_async() -> None:
             nws_grid = await fetch_nws_gridpoint(city)
             if nws_grid:
                 await _store_weather_data(nws_grid)
+                WEATHER_FETCHES_TOTAL.labels(source="NWS_CLI", city=city, outcome="success").inc()
                 logger.info(
                     "Fetched CLI-equivalent data for settlement",
                     extra={
@@ -219,6 +227,7 @@ async def _fetch_cli_reports_async() -> None:
                     },
                 )
         except Exception as exc:
+            WEATHER_FETCHES_TOTAL.labels(source="NWS_CLI", city=city, outcome="error").inc()
             logger.error(
                 "CLI report fetch failed",
                 extra={"data": {"city": city, "error": str(exc)}},

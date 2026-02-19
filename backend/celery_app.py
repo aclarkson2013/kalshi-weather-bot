@@ -6,10 +6,14 @@ Run beat:   celery -A backend.celery_app beat --loglevel=info
 
 from __future__ import annotations
 
+import time as _time
+
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import task_failure, task_postrun, task_prerun, task_retry
 
 from backend.common.config import get_settings
+from backend.common.metrics import CELERY_TASK_DURATION_SECONDS, CELERY_TASK_TOTAL
 
 settings = get_settings()
 
@@ -64,3 +68,47 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour=9, minute=0),
     },
 }
+
+
+# ─── Prometheus Metrics via Celery Signals ───
+# These fire automatically for every task — no changes to task bodies required.
+
+_task_start_times: dict[str, float] = {}
+
+
+def _short_name(sender) -> str:  # noqa: ANN001
+    """Extract the short task name (e.g. 'trading_cycle' from full dotted path)."""
+    name = sender.name if sender else "unknown"
+    return name.rsplit(".", 1)[-1] if name else "unknown"
+
+
+@task_prerun.connect
+def _on_task_prerun(sender=None, task_id=None, **kwargs) -> None:  # noqa: ANN001, ANN003
+    """Record the start time when a Celery task begins."""
+    if task_id:
+        _task_start_times[task_id] = _time.monotonic()
+
+
+@task_postrun.connect
+def _on_task_postrun(sender=None, task_id=None, **kwargs) -> None:  # noqa: ANN001, ANN003
+    """Record success and duration when a Celery task completes."""
+    short = _short_name(sender)
+    CELERY_TASK_TOTAL.labels(task_name=short, status="success").inc()
+
+    start = _task_start_times.pop(task_id, None) if task_id else None
+    if start is not None:
+        CELERY_TASK_DURATION_SECONDS.labels(task_name=short).observe(_time.monotonic() - start)
+
+
+@task_failure.connect
+def _on_task_failure(sender=None, task_id=None, **kwargs) -> None:  # noqa: ANN001, ANN003
+    """Record failure when a Celery task raises an exception."""
+    CELERY_TASK_TOTAL.labels(task_name=_short_name(sender), status="failure").inc()
+    if task_id:
+        _task_start_times.pop(task_id, None)
+
+
+@task_retry.connect
+def _on_task_retry(sender=None, task_id=None, **kwargs) -> None:  # noqa: ANN001, ANN003
+    """Record retry when a Celery task is retried."""
+    CELERY_TASK_TOTAL.labels(task_name=_short_name(sender), status="retry").inc()

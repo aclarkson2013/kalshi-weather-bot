@@ -27,6 +27,11 @@ from celery.exceptions import SoftTimeLimitExceeded
 
 from backend.common.database import get_task_session
 from backend.common.logging import get_logger
+from backend.common.metrics import (
+    TRADES_EXECUTED_TOTAL,
+    TRADES_RISK_BLOCKED_TOTAL,
+    TRADING_CYCLES_TOTAL,
+)
 
 logger = get_logger("TRADING")
 ET = ZoneInfo("America/New_York")
@@ -67,12 +72,14 @@ def trading_cycle(self) -> dict:
             "Trading cycle hit soft time limit",
             extra={"data": {"elapsed_seconds": round(elapsed, 1)}},
         )
+        TRADING_CYCLES_TOTAL.labels(outcome="timeout").inc()
         return {"status": "timeout", "elapsed_seconds": round(elapsed, 1)}
     except Exception as exc:
         logger.error(
             "Trading cycle failed, retrying",
             extra={"data": {"error": str(exc)}},
         )
+        TRADING_CYCLES_TOTAL.labels(outcome="error").inc()
         raise self.retry(exc=exc) from exc
 
     elapsed = (datetime.now(UTC) - start_time).total_seconds()
@@ -81,6 +88,8 @@ def trading_cycle(self) -> dict:
         "Trading cycle completed",
         extra={"data": {"elapsed_seconds": round(elapsed, 1)}},
     )
+
+    TRADING_CYCLES_TOTAL.labels(outcome="completed").inc()
 
     return {
         "status": "completed",
@@ -189,6 +198,7 @@ async def _run_trading_cycle() -> None:
             "Trading cycle skipped: markets closed",
             extra={"data": {}},
         )
+        TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
         return
 
     session = await get_task_session()
@@ -200,6 +210,7 @@ async def _run_trading_cycle() -> None:
                 "Trading cycle skipped: no user configured",
                 extra={"data": {}},
             )
+            TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
         user_id = await _get_user_id(session)
@@ -208,6 +219,7 @@ async def _run_trading_cycle() -> None:
                 "Trading cycle skipped: no user found",
                 extra={"data": {}},
             )
+            TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
         risk_mgr = RiskManager(user_settings, session, user_id)
@@ -225,6 +237,7 @@ async def _run_trading_cycle() -> None:
                 "Trading cycle skipped: cooldown",
                 extra={"data": {"reason": reason}},
             )
+            TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
         # Steps 5-11: Fetch predictions, scan, execute/queue
@@ -236,6 +249,7 @@ async def _run_trading_cycle() -> None:
                 "Trading cycle skipped: no Kalshi client available",
                 extra={"data": {}},
             )
+            TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
         # Fetch predictions for active cities
@@ -245,6 +259,7 @@ async def _run_trading_cycle() -> None:
                 "Trading cycle skipped: no predictions available",
                 extra={"data": {}},
             )
+            TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
         # Validate predictions
@@ -253,6 +268,7 @@ async def _run_trading_cycle() -> None:
                 "Trading cycle aborted: invalid predictions",
                 extra={"data": {}},
             )
+            TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
         # Process each city's prediction
@@ -308,10 +324,14 @@ async def _run_trading_cycle() -> None:
                             }
                         },
                     )
+                    # Truncate reason to first segment to bound label cardinality
+                    short_reason = (risk_reason or "unknown").split(":")[0].strip()
+                    TRADES_RISK_BLOCKED_TOTAL.labels(reason=short_reason).inc()
                     continue
 
                 if user_settings.trading_mode == "auto":
                     await execute_trade(signal, kalshi_client, session, user_id)
+                    TRADES_EXECUTED_TOTAL.labels(mode="auto", city=signal.city).inc()
                 else:
                     notification_svc = await _get_notification_service(session, user_id)
                     await queue_trade(
@@ -321,6 +341,7 @@ async def _run_trading_cycle() -> None:
                         signal.market_ticker,
                         notification_svc,
                     )
+                    TRADES_EXECUTED_TOTAL.labels(mode="queued", city=signal.city).inc()
 
         await session.commit()
 

@@ -29,6 +29,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.6",
     "asgiref>=3.7.0",
+    "prometheus-client>=0.20.0",
 ]
 
 [project.optional-dependencies]

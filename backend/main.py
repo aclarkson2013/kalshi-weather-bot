@@ -10,6 +10,7 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import make_asgi_app as make_metrics_app
 from sqlalchemy import text
 
 from backend.api.auth import router as auth_router
@@ -24,7 +25,9 @@ from backend.api.trades import router as trades_router
 from backend.common.config import get_settings
 from backend.common.exceptions import BozBaseException
 from backend.common.logging import get_logger
+from backend.common.metrics import set_app_info
 from backend.common.middleware import (
+    PrometheusMiddleware,
     RequestIdMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
@@ -62,6 +65,7 @@ def create_app() -> FastAPI:
 
     # Production middleware (last added = outermost = runs first on request)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(PrometheusMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(RequestIdMiddleware)
 
@@ -197,6 +201,12 @@ def create_app() -> FastAPI:
                 "checks": checks,
             },
         )
+
+    # ─── Prometheus Metrics ───
+
+    metrics_app = make_metrics_app()
+    app.mount("/metrics", metrics_app)
+    set_app_info(version="0.1.0", environment=get_settings().environment)
 
     # ─── Router Mounting ───
 
