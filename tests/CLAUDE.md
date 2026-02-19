@@ -16,6 +16,9 @@ tests/
 │   ├── kalshi_orderbook.json
 │   ├── kalshi_order_response.json
 │   └── nws_cli_nyc.json
+├── common/              → Unit tests for backend/common/ (metrics, middleware)
+│   ├── test_metrics.py           → Metric definitions, labels, custom buckets (12 tests)
+│   └── test_metrics_middleware.py → PrometheusMiddleware, path normalization (18 tests)
 ├── weather/             → Unit tests for backend/weather/
 │   ├── conftest.py      → Weather-specific fixtures (mock NWS/Open-Meteo responses)
 │   ├── test_nws.py
@@ -1066,7 +1069,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (466 tests, in-memory SQLite, no Docker needed) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (583 tests, in-memory SQLite, no Docker needed) | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 82 tests) | Yes |
 
 **Key design decisions:**

@@ -15,7 +15,9 @@ backend/common/
 ├── logging.py        -> Structured logging setup with module tags + secret redaction
 ├── config.py         -> App settings via pydantic-settings (reads .env)
 ├── encryption.py     -> AES-256 encryption helpers for API key storage
-└── exceptions.py     -> Base exception classes shared across modules
+├── exceptions.py     -> Base exception classes shared across modules
+├── middleware.py     -> Production middleware (request ID, logging, Prometheus metrics, security headers)
+└── metrics.py        -> Centralized Prometheus metric definitions (counters, histograms, gauges)
 ```
 
 ---
@@ -783,6 +785,65 @@ alembic downgrade -1
 
 ---
 
+## middleware.py — Production Middleware
+
+Four middleware classes registered in `backend/main.py`, applied in order (outermost first):
+
+1. **RequestIdMiddleware** — Injects a unique request ID (`X-Request-ID` header) into every request/response. Stores in `ContextVar` for structured logging.
+2. **RequestLoggingMiddleware** — Logs every HTTP request with method, path, status, and duration. Skips `/health`, `/ready`, `/metrics`.
+3. **PrometheusMiddleware** — Records Prometheus HTTP metrics (request count, duration histogram, in-progress gauge). Skips `/health`, `/ready`, `/metrics`. Normalizes dynamic path segments (UUIDs, hex, numeric IDs) to `{id}` to avoid high-cardinality labels.
+4. **SecurityHeadersMiddleware** — Adds OWASP security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.).
+
+### Key Exports
+
+```python
+from backend.common.middleware import request_id_var  # ContextVar for current request ID
+from backend.common.middleware import PrometheusMiddleware, _normalize_path
+```
+
+---
+
+## metrics.py — Prometheus Metrics Definitions
+
+All Prometheus metric objects are module-level singletons. Import them wherever you need to instrument code.
+
+### Metric Objects
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `APP_INFO` | Info | version, environment | Application metadata |
+| `HTTP_REQUESTS_TOTAL` | Counter | method, path_template, status_code | Total HTTP requests |
+| `HTTP_REQUEST_DURATION_SECONDS` | Histogram | method, path_template | HTTP request duration (custom buckets: 5ms–10s) |
+| `HTTP_REQUESTS_IN_PROGRESS` | Gauge | method | Concurrent HTTP requests |
+| `CELERY_TASK_TOTAL` | Counter | task_name, status | Celery task completions (success/failure/retry) |
+| `CELERY_TASK_DURATION_SECONDS` | Histogram | task_name | Celery task duration (custom buckets: 0.1s–300s) |
+| `TRADING_CYCLES_TOTAL` | Counter | outcome | Trading cycle outcomes (completed/skipped/timeout/error) |
+| `TRADES_EXECUTED_TOTAL` | Counter | mode, city | Trades executed (auto/queued) |
+| `TRADES_RISK_BLOCKED_TOTAL` | Counter | reason | Trades blocked by risk manager |
+| `WEATHER_FETCHES_TOTAL` | Counter | source, city, outcome | Weather data fetch results |
+
+### Usage
+
+```python
+from backend.common.metrics import WEATHER_FETCHES_TOTAL, set_app_info
+
+# Increment a counter with labels
+WEATHER_FETCHES_TOTAL.labels(source="NWS", city="NYC", outcome="success").inc()
+
+# Set app info at startup
+set_app_info(version="0.1.0", environment="production")
+```
+
+### `/metrics` Endpoint
+
+The Prometheus scrape endpoint is mounted at `/metrics` in `backend/main.py` via `prometheus_client.make_asgi_app()`. FastAPI's `mount()` redirects `/metrics` to `/metrics/` (307).
+
+### Celery Signal Integration
+
+Celery task metrics are collected automatically via signals in `backend/celery_app.py` — no changes to task bodies required. Signals: `task_prerun`, `task_postrun`, `task_failure`, `task_retry`.
+
+---
+
 ## Rules for Agents
 
 1. **Import from here, not from each other.** If Agent 4 needs weather data types, import from `backend.common.schemas`, not from `backend.weather`.
@@ -795,3 +856,4 @@ alembic downgrade -1
 8. **Use the database dependency.** In FastAPI routes, inject the session with `Depends(get_db_session)`. In Celery tasks, use `async_session()` context manager directly.
 9. **Run migrations for schema changes.** After modifying `models.py`, generate an Alembic migration and apply it. Never ALTER TABLE by hand.
 10. **Type everything.** All functions must have type hints. All Pydantic models must have field types. The codebase uses `from __future__ import annotations` everywhere.
+11. **Instrument with metrics.** When adding new business-critical operations, increment the appropriate Prometheus counter from `backend.common.metrics`. Keep label cardinality bounded — normalize dynamic values before using as labels.

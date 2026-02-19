@@ -16,14 +16,18 @@ The backend is a Python FastAPI application. All backend modules live under `bac
 
 ```
 backend/
-├── main.py              → FastAPI app entry point, router registration
-├── config.py            → Settings via pydantic-settings (reads .env)
+├── main.py              → FastAPI app entry point, router registration, /metrics mount
+├── celery_app.py        → Celery configuration, beat schedule, task signal instrumentation
 ├── common/
 │   ├── schemas.py       → Pydantic models for ALL cross-module data
 │   ├── database.py      → SQLAlchemy setup, session management
 │   ├── models.py        → SQLAlchemy ORM models (database tables)
 │   ├── logging.py       → Structured logging setup
-│   └── exceptions.py    → Custom exception classes
+│   ├── config.py        → App settings via pydantic-settings (reads .env)
+│   ├── encryption.py    → AES-256 encryption helpers for API key storage
+│   ├── exceptions.py    → Custom exception classes
+│   ├── middleware.py    → Production middleware (request ID, logging, Prometheus, security headers)
+│   └── metrics.py       → Centralized Prometheus metric definitions (counters, histograms, gauges)
 ├── weather/             → Agent 1: Weather data pipeline
 ├── kalshi/              → Agent 2: Kalshi API client
 ├── prediction/          → Agent 3: Prediction engine

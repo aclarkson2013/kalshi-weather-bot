@@ -11,12 +11,15 @@ Boz Weather Trader is a free, open-source automated trading bot for Kalshi weath
 ```
 frontend/          → Next.js PWA (dashboard, onboarding, trade queue)
 backend/
+  ├── main.py      → FastAPI app entry point, /metrics endpoint, middleware stack
+  ├── celery_app.py → Celery config, beat schedule, task signal instrumentation
   ├── weather/     → Agent 1: NWS + Open-Meteo data pipeline
   ├── kalshi/      → Agent 2: Kalshi API client (auth, orders, markets)
   ├── prediction/  → Agent 3: Statistical ensemble + bracket probabilities
   ├── trading/     → Agent 4: EV calculator, risk controls, trade queue
-  └── common/      → Shared schemas, config, database models, logging
+  └── common/      → Shared schemas, config, database, logging, middleware, metrics
 tests/
+  ├── common/      → Unit tests for shared modules (metrics, middleware)
   ├── weather/     → Unit tests for weather pipeline
   ├── kalshi/      → Unit tests for Kalshi client
   ├── prediction/  → Unit tests for prediction engine
@@ -29,6 +32,7 @@ tests/
 - **Backend:** Python 3.11+, FastAPI, Celery + Redis, PostgreSQL
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
 - **ML/Stats:** scipy, numpy (Gaussian CDF for bracket probabilities)
+- **Monitoring:** prometheus-client (Prometheus metrics via `/metrics` endpoint)
 - **Containerization:** Docker + Docker Compose
 - **Testing:** pytest (backend), Jest/Vitest (frontend)
 - **CI/CD:** GitHub Actions
@@ -62,6 +66,14 @@ tests/
 - Module tags: WEATHER, MODEL, MARKET, TRADING, ORDER, RISK, COOLDOWN, AUTH, SETTLE, POSTMORTEM, SYSTEM
 - NEVER log sensitive data (API keys, private keys, passwords)
 - Log at appropriate levels: DEBUG (dev only), INFO (normal ops), WARN (approaching limits), ERROR (failures), CRITICAL (system down)
+
+### Monitoring (Prometheus Metrics)
+- All Prometheus metric objects are centralized in `backend/common/metrics.py` — import from there
+- HTTP metrics are collected automatically by `PrometheusMiddleware` in `backend/common/middleware.py`
+- Celery task metrics are collected automatically via signals in `backend/celery_app.py`
+- Business counters (trading cycles, trades executed, risk blocks, weather fetches) are incremented inline
+- The `/metrics` endpoint exposes all metrics for Prometheus scraping
+- Keep label cardinality bounded — normalize dynamic values (IDs, timestamps) before using as labels
 
 ### Interface Contracts
 - All cross-module communication uses Pydantic models defined in `backend/common/schemas.py`
