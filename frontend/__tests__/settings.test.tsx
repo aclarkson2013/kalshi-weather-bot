@@ -5,8 +5,10 @@ import type { UserSettings } from "@/lib/types";
 
 // Mock hooks
 const mockUseSettings = vi.fn();
+const mockUseAuthStatus = vi.fn();
 vi.mock("@/lib/hooks", () => ({
   useSettings: () => mockUseSettings(),
+  useAuthStatus: () => mockUseAuthStatus(),
 }));
 
 // Mock API
@@ -47,6 +49,17 @@ describe("SettingsPage", () => {
     vi.clearAllMocks();
     // Suppress confirm dialog
     vi.spyOn(window, "confirm").mockReturnValue(false);
+    // Default auth status mock
+    mockUseAuthStatus.mockReturnValue({
+      data: {
+        authenticated: true,
+        user_id: "test-user",
+        demo_mode: true,
+        key_id_prefix: "abc123...",
+      },
+      error: undefined,
+      isLoading: false,
+    });
   });
 
   it("shows loading state", () => {
@@ -208,6 +221,42 @@ describe("SettingsPage", () => {
     expect(
       screen.getByText("Disconnect Kalshi Account")
     ).toBeInTheDocument();
+  });
+
+  it("shows connection status with demo badge", () => {
+    mockUseSettings.mockReturnValue({
+      data: MOCK_SETTINGS,
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<SettingsPage />);
+    expect(screen.getByText("Connection Status")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText("DEMO")).toBeInTheDocument();
+    expect(screen.getByText("Key: abc123...")).toBeInTheDocument();
+  });
+
+  it("shows live badge when not in demo mode", () => {
+    mockUseAuthStatus.mockReturnValue({
+      data: {
+        authenticated: true,
+        user_id: "test-user",
+        demo_mode: false,
+        key_id_prefix: "xyz789...",
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    mockUseSettings.mockReturnValue({
+      data: MOCK_SETTINGS,
+      error: undefined,
+      isLoading: false,
+    });
+
+    render(<SettingsPage />);
+    expect(screen.getByText("LIVE")).toBeInTheDocument();
+    expect(screen.getByText("Key: xyz789...")).toBeInTheDocument();
   });
 
   it("slider changes update display values", () => {

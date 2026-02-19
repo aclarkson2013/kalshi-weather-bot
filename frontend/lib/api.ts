@@ -5,6 +5,7 @@
  */
 
 import type {
+  AuthStatusResponse,
   AuthValidateRequest,
   AuthValidateResponse,
   BracketPrediction,
@@ -83,6 +84,10 @@ export async function validateCredentials(
     method: "POST",
     body: JSON.stringify(creds),
   });
+}
+
+export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
+  return apiFetch<AuthStatusResponse>("/api/auth/status");
 }
 
 export async function disconnect(): Promise<void> {

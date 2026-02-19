@@ -32,9 +32,11 @@ export default function OnboardingPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [keyId, setKeyId] = useState("");
   const [privateKey, setPrivateKey] = useState("");
+  const [demoMode, setDemoMode] = useState(true);
   const [validating, setValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
+  const [confirmedDemoMode, setConfirmedDemoMode] = useState(true);
 
   const currentStep = STEPS[stepIndex];
 
@@ -49,8 +51,10 @@ export default function OnboardingPage() {
       const result = await validateCredentials({
         key_id: keyId.trim(),
         private_key: privateKey.trim(),
+        demo_mode: demoMode,
       });
       setBalanceCents(result.balance_cents);
+      setConfirmedDemoMode(result.demo_mode);
       goNext();
     } catch (error) {
       setValidationError(
@@ -156,6 +160,41 @@ export default function OnboardingPage() {
         {currentStep === "API Keys" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Enter API Credentials</h2>
+
+            {/* Demo / Live Toggle */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Environment
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDemoMode(true)}
+                  className={`min-h-[44px] flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    demoMode
+                      ? "bg-boz-primary text-white"
+                      : "bg-gray-100 text-boz-neutral hover:bg-gray-200"
+                  }`}
+                >
+                  Demo
+                </button>
+                <button
+                  onClick={() => setDemoMode(false)}
+                  className={`min-h-[44px] flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    !demoMode
+                      ? "bg-boz-primary text-white"
+                      : "bg-gray-100 text-boz-neutral hover:bg-gray-200"
+                  }`}
+                >
+                  Live
+                </button>
+              </div>
+              <p className="text-xs text-boz-neutral mt-1.5">
+                {demoMode
+                  ? "Demo mode uses Kalshi\u2019s sandbox environment. No real money."
+                  : "Live mode trades with real money on Kalshi. Use caution."}
+              </p>
+            </div>
+
             <div className="space-y-4 mb-6">
               <div>
                 <label
@@ -233,6 +272,17 @@ export default function OnboardingPage() {
             <p className="text-boz-neutral mb-2">
               Your Kalshi account is now connected.
             </p>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  confirmedDemoMode
+                    ? "bg-orange-100 text-orange-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                {confirmedDemoMode ? "DEMO" : "LIVE"}
+              </span>
+            </div>
             {balanceCents !== null && (
               <p className="text-lg font-semibold text-boz-primary mb-8">
                 Account Balance: ${(balanceCents / 100).toFixed(2)}
@@ -304,6 +354,18 @@ export default function OnboardingPage() {
               Your account is configured with conservative defaults:
             </p>
             <div className="bg-gray-50 rounded-lg p-4 mb-6 text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-boz-neutral">Environment</span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    confirmedDemoMode
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {confirmedDemoMode ? "Demo" : "Live"}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-boz-neutral">Trading Mode</span>
                 <span className="font-medium">Manual</span>

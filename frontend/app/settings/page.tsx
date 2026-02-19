@@ -7,7 +7,7 @@ import { mutate } from "swr";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import Skeleton from "@/components/ui/skeleton";
 import { disconnect, updateSettings } from "@/lib/api";
-import { useSettings } from "@/lib/hooks";
+import { useAuthStatus, useSettings } from "@/lib/hooks";
 import type { CityCode, SettingsUpdate, TradingMode } from "@/lib/types";
 import { centsToDollars } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ const ALL_CITIES: CityCode[] = ["NYC", "CHI", "MIA", "AUS"];
 
 export default function SettingsPage() {
   const { data: settings, error, isLoading } = useSettings();
+  const { data: authStatus } = useAuthStatus();
 
   // Local form state
   const [tradingMode, setTradingMode] = useState<TradingMode>("manual");
@@ -125,6 +126,31 @@ export default function SettingsPage() {
       <h1 className="text-xl font-bold mb-4">Settings</h1>
 
       <div className="space-y-6">
+        {/* Connection Status */}
+        {authStatus && (
+          <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <h2 className="text-sm font-semibold mb-3">Connection Status</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-boz-success" />
+                <span className="text-sm font-medium">Connected</span>
+              </div>
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  authStatus.demo_mode
+                    ? "bg-orange-100 text-orange-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                {authStatus.demo_mode ? "DEMO" : "LIVE"}
+              </span>
+            </div>
+            <p className="text-xs text-boz-neutral mt-2">
+              Key: {authStatus.key_id_prefix}
+            </p>
+          </section>
+        )}
+
         {/* Trading Mode */}
         <section className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <h2 className="text-sm font-semibold mb-3">Trading Mode</h2>

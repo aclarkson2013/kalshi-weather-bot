@@ -642,6 +642,7 @@ export function usePerformance() {
 
 | Hook              | Interval  | Reason                                      |
 |-------------------|-----------|---------------------------------------------|
+| `useAuthStatus`   | none      | Fetch on mount, re-fetched on demand via `mutate` |
 | `useDashboard`    | 30s       | Balance and positions update moderately      |
 | `usePendingTrades`| 10s       | Trades can expire — need fast updates        |
 | `useMarkets`      | 60s       | Predictions update on model runs             |
@@ -790,14 +791,15 @@ export function BottomNav() {
 ### How Authentication Works
 
 1. **NO passwords** — RSA key-based authentication only (Kalshi API keys).
-2. During onboarding, user provides their Kalshi **Key ID** (UUID format) and **PEM private key**.
-3. Frontend sends both to backend `POST /api/auth/validate`.
-4. Backend validates by making a test Kalshi API call with the provided credentials.
-5. If valid: backend encrypts the private key with AES-256, stores it in the database, and sets an **httpOnly session cookie** on the response.
+2. During onboarding, user provides their Kalshi **Key ID** (UUID format), **PEM private key**, and selects **Demo/Live mode**.
+3. Frontend sends all three to backend `POST /api/auth/validate` (includes `demo_mode` field).
+4. Backend validates by making a test Kalshi API call with the provided credentials against the appropriate environment (demo or live).
+5. If valid: backend encrypts the private key with AES-256, stores it in the database along with `demo_mode`, and sets an **httpOnly session cookie** on the response.
 6. The session cookie contains a JWT with user ID (NOT the API keys).
 7. **The frontend NEVER stores, caches, or logs the API keys.** Only the session cookie persists.
 8. All subsequent API calls include the cookie automatically via `credentials: 'include'`.
-9. "Disconnect" flow: `POST /api/auth/disconnect` tells the backend to delete the encrypted keys and clear the session cookie.
+9. `GET /api/auth/status` returns current auth state, `demo_mode`, and truncated `key_id_prefix` for display.
+10. "Disconnect" flow: `POST /api/auth/disconnect` tells the backend to delete the encrypted keys and clear the session cookie.
 
 ### Key Validation Rules (Frontend)
 
@@ -1517,10 +1519,10 @@ export function CityPerformanceChart({ data }: CityPerformanceChartProps) {
 See "Onboarding Flow Implementation" section above. Six steps:
 1. Welcome screen
 2. API key generation instructions (with visual guide)
-3. API key input form (Key ID + Private Key textarea)
-4. Validation (call backend to verify keys)
+3. API key input form — **Demo/Live environment toggle** (defaults to Demo), Key ID input, Private Key textarea
+4. Validation (call backend to verify keys — sends `demo_mode`, shows DEMO/LIVE badge on success)
 5. Risk disclaimer acknowledgment
-6. Initial settings (trading mode, max trade size, cities)
+6. Initial settings summary — shows environment (Demo/Live), trading mode, max trade size, cities
 
 ### 2. Dashboard (`/`) — Home
 - Account balance (from Kalshi) — display as dollars: `$${centsToDollars(balance_cents)}`
@@ -1559,6 +1561,10 @@ See "Onboarding Flow Implementation" section above. Six steps:
 - Use `useTrades()` hook
 
 ### 6. Settings (`/settings`)
+- **Connection Status section** (first section, uses `useAuthStatus()` hook):
+  - Green dot + "Connected" status
+  - DEMO/LIVE badge (orange for demo, green for live)
+  - Truncated key ID prefix from `/api/auth/status`
 - Trading mode toggle (Full Auto / Manual Approval) — use a segmented control
 - Risk controls:
   - Max trade size: slider with label showing dollar value (range: $0.10 to $10.00)
@@ -1571,9 +1577,8 @@ See "Onboarding Flow Implementation" section above. Six steps:
 - City selection: checkboxes for NYC, CHI, MIA, AUS (at least one must be checked)
 - Notifications toggle
 - API key management section:
-  - "Test Connection" button (calls `/api/auth/validate` with existing session)
   - "Disconnect" button (calls `/api/auth/disconnect`, redirects to onboarding)
-- Use `useSettings()` hook with optimistic updates
+- Use `useSettings()` + `useAuthStatus()` hooks
 
 ### 7. Log Viewer (`/logs`)
 - Near-real-time log streaming (poll backend every 2 seconds via `useLogs()`)

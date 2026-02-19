@@ -1084,7 +1084,7 @@ jobs:
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
 | `backend-test` | `pytest tests/ -x -q --tb=short` (696 tests, in-memory SQLite, no Docker needed) | Yes |
-| `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 82 tests) | Yes |
+| `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 91 tests) | Yes |
 
 **Key design decisions:**
 - No PostgreSQL/Redis services needed — backend tests use in-memory SQLite and mock Redis

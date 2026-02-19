@@ -24,11 +24,20 @@ export type TradingMode = "auto" | "manual";
 export interface AuthValidateRequest {
   key_id: string;
   private_key: string;
+  demo_mode?: boolean;
 }
 
 export interface AuthValidateResponse {
   valid: boolean;
   balance_cents: number;
+  demo_mode: boolean;
+}
+
+export interface AuthStatusResponse {
+  authenticated: boolean;
+  user_id: string;
+  demo_mode: boolean;
+  key_id_prefix: string;
 }
 
 // ─── Dashboard ───
@@ -135,6 +144,7 @@ export interface SettingsUpdate {
   consecutive_loss_limit?: number;
   active_cities?: CityCode[];
   notifications_enabled?: boolean;
+  demo_mode?: boolean;
 }
 
 // ─── Logs ───

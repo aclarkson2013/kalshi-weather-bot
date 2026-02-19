@@ -13,6 +13,7 @@
 import useSWR, { type SWRConfiguration } from "swr";
 
 import {
+  fetchAuthStatus,
   fetchDashboard,
   fetchLogs,
   fetchMarkets,
@@ -22,6 +23,7 @@ import {
   fetchTrades,
 } from "./api";
 import type {
+  AuthStatusResponse,
   BracketPrediction,
   CityCode,
   DashboardData,
@@ -31,6 +33,19 @@ import type {
   TradesPage,
   UserSettings,
 } from "./types";
+
+// ─── Auth Status ───
+
+export function useAuthStatus(config?: SWRConfiguration) {
+  return useSWR<AuthStatusResponse>(
+    "/api/auth/status",
+    () => fetchAuthStatus(),
+    {
+      refreshInterval: 0,
+      ...config,
+    }
+  );
+}
 
 // ─── Dashboard ───
 

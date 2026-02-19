@@ -48,6 +48,50 @@ describe("OnboardingPage", () => {
     expect(screen.getByLabelText("Private Key (PEM)")).toBeInTheDocument();
   });
 
+  it("shows demo/live environment toggle on API Keys step", () => {
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    expect(screen.getByText("Environment")).toBeInTheDocument();
+    expect(screen.getByText("Demo")).toBeInTheDocument();
+    expect(screen.getByText("Live")).toBeInTheDocument();
+  });
+
+  it("defaults to demo mode selected", () => {
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    expect(
+      screen.getByText(
+        "Demo mode uses Kalshi\u2019s sandbox environment. No real money."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("toggles between demo and live mode", () => {
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    // Switch to live
+    fireEvent.click(screen.getByText("Live"));
+    expect(
+      screen.getByText(
+        "Live mode trades with real money on Kalshi. Use caution."
+      )
+    ).toBeInTheDocument();
+
+    // Switch back to demo
+    fireEvent.click(screen.getByText("Demo"));
+    expect(
+      screen.getByText(
+        "Demo mode uses Kalshi\u2019s sandbox environment. No real money."
+      )
+    ).toBeInTheDocument();
+  });
+
   it("disables validate button when fields are empty", () => {
     render(<OnboardingPage />);
     fireEvent.click(screen.getByText("Get Started"));
@@ -71,6 +115,69 @@ describe("OnboardingPage", () => {
 
     const validateBtn = screen.getByText("Validate");
     expect(validateBtn.closest("button")).not.toBeDisabled();
+  });
+
+  it("sends demo_mode in validation request", async () => {
+    const mockValidate = validateCredentials as ReturnType<typeof vi.fn>;
+    mockValidate.mockResolvedValue({
+      valid: true,
+      balance_cents: 5000,
+      demo_mode: true,
+    });
+
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    fireEvent.change(screen.getByLabelText("Key ID"), {
+      target: { value: "test-key" },
+    });
+    fireEvent.change(screen.getByLabelText("Private Key (PEM)"), {
+      target: { value: "test-pem" },
+    });
+
+    fireEvent.click(screen.getByText("Validate"));
+
+    await waitFor(() => {
+      expect(mockValidate).toHaveBeenCalledWith({
+        key_id: "test-key",
+        private_key: "test-pem",
+        demo_mode: true,
+      });
+    });
+  });
+
+  it("sends demo_mode false when live is selected", async () => {
+    const mockValidate = validateCredentials as ReturnType<typeof vi.fn>;
+    mockValidate.mockResolvedValue({
+      valid: true,
+      balance_cents: 10000,
+      demo_mode: false,
+    });
+
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    // Switch to live mode
+    fireEvent.click(screen.getByText("Live"));
+
+    fireEvent.change(screen.getByLabelText("Key ID"), {
+      target: { value: "live-key" },
+    });
+    fireEvent.change(screen.getByLabelText("Private Key (PEM)"), {
+      target: { value: "live-pem" },
+    });
+
+    fireEvent.click(screen.getByText("Validate"));
+
+    await waitFor(() => {
+      expect(mockValidate).toHaveBeenCalledWith({
+        key_id: "live-key",
+        private_key: "live-pem",
+        demo_mode: false,
+      });
+    });
   });
 
   it("shows validation error on failed validate", async () => {
@@ -97,7 +204,11 @@ describe("OnboardingPage", () => {
 
   it("advances to success step on valid credentials", async () => {
     const mockValidate = validateCredentials as ReturnType<typeof vi.fn>;
-    mockValidate.mockResolvedValue({ valid: true, balance_cents: 5000 });
+    mockValidate.mockResolvedValue({
+      valid: true,
+      balance_cents: 5000,
+      demo_mode: true,
+    });
 
     render(<OnboardingPage />);
     fireEvent.click(screen.getByText("Get Started"));
@@ -120,9 +231,38 @@ describe("OnboardingPage", () => {
     });
   });
 
+  it("shows demo badge on validation success", async () => {
+    const mockValidate = validateCredentials as ReturnType<typeof vi.fn>;
+    mockValidate.mockResolvedValue({
+      valid: true,
+      balance_cents: 5000,
+      demo_mode: true,
+    });
+
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    fireEvent.change(screen.getByLabelText("Key ID"), {
+      target: { value: "key" },
+    });
+    fireEvent.change(screen.getByLabelText("Private Key (PEM)"), {
+      target: { value: "pem" },
+    });
+    fireEvent.click(screen.getByText("Validate"));
+
+    await waitFor(() => {
+      expect(screen.getByText("DEMO")).toBeInTheDocument();
+    });
+  });
+
   it("shows risk disclaimer step", async () => {
     const mockValidate = validateCredentials as ReturnType<typeof vi.fn>;
-    mockValidate.mockResolvedValue({ valid: true, balance_cents: 5000 });
+    mockValidate.mockResolvedValue({
+      valid: true,
+      balance_cents: 5000,
+      demo_mode: true,
+    });
 
     render(<OnboardingPage />);
     // Navigate to step 4 (validation success)
@@ -145,5 +285,39 @@ describe("OnboardingPage", () => {
     fireEvent.click(screen.getByText("Continue"));
     expect(screen.getByText("Risk Disclaimer")).toBeInTheDocument();
     expect(screen.getByText("I Understand")).toBeInTheDocument();
+  });
+
+  it("shows environment in final settings summary", async () => {
+    const mockValidate = validateCredentials as ReturnType<typeof vi.fn>;
+    mockValidate.mockResolvedValue({
+      valid: true,
+      balance_cents: 5000,
+      demo_mode: true,
+    });
+
+    render(<OnboardingPage />);
+
+    // Navigate through all steps to Settings
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Continue"));
+
+    fireEvent.change(screen.getByLabelText("Key ID"), {
+      target: { value: "key" },
+    });
+    fireEvent.change(screen.getByLabelText("Private Key (PEM)"), {
+      target: { value: "pem" },
+    });
+    fireEvent.click(screen.getByText("Validate"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Connected Successfully!")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Continue")); // → Risk Disclaimer
+    fireEvent.click(screen.getByText("I Understand")); // → Settings
+
+    expect(screen.getByText(/You.*re All Set!/)).toBeInTheDocument();
+    expect(screen.getByText("Environment")).toBeInTheDocument();
+    expect(screen.getByText("Demo")).toBeInTheDocument();
   });
 });
