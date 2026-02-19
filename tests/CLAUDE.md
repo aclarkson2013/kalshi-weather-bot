@@ -50,6 +50,9 @@ tests/
 │   ├── test_executor.py
 │   ├── test_postmortem.py
 │   └── test_safety.py   → CRITICAL: safety tests (risk limits, key security, etc.)
+├── e2e/                 → End-to-end smoke tests (real auth path, real middleware)
+│   ├── conftest.py      → E2E fixtures (e2e_engine, authed_client, bare_client, seed helpers)
+│   └── test_smoke.py    → 35 smoke tests across 11 test classes
 └── integration/         → Cross-module integration tests
     ├── conftest.py      → Integration fixtures (Docker test DB, full pipeline setup)
     ├── test_weather_to_prediction.py
@@ -93,6 +96,9 @@ pytest tests/integration/ --integration
 
 # Exclude integration tests (fast local run)
 pytest -m "not integration"
+
+# E2E smoke tests only
+pytest tests/e2e/ -v
 
 # Run with verbose output and stop on first failure
 pytest -vx
@@ -154,6 +160,7 @@ asyncio_mode = "auto"
 markers = [
     "integration: marks tests requiring Docker services (deselect with '-m \"not integration\"')",
     "safety: marks critical safety tests that protect real money",
+    "e2e: marks end-to-end smoke tests (deselect with '-m \"not e2e\"')",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
@@ -1069,7 +1076,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (583 tests, in-memory SQLite, no Docker needed) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (657 tests, in-memory SQLite, no Docker needed) | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 82 tests) | Yes |
 
 **Key design decisions:**

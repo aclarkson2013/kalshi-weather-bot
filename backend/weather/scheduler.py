@@ -15,13 +15,15 @@ from datetime import UTC, datetime
 
 from asgiref.sync import async_to_sync
 from celery import shared_task
+from sqlalchemy import select
 
 from backend.common.database import get_task_session
 from backend.common.logging import get_logger
 from backend.common.metrics import WEATHER_FETCHES_TOTAL
-from backend.common.models import WeatherForecast
+from backend.common.models import CityEnum, Settlement, WeatherForecast
 from backend.common.schemas import WeatherData
-from backend.weather.nws import fetch_nws_forecast, fetch_nws_gridpoint
+from backend.weather.cli_parser import parse_cli_text
+from backend.weather.nws import fetch_nws_cli, fetch_nws_forecast, fetch_nws_gridpoint
 from backend.weather.openmeteo import fetch_openmeteo_forecast
 from backend.weather.stations import VALID_CITIES
 
@@ -196,40 +198,86 @@ async def _fetch_all_forecasts_async() -> None:
 
 
 async def _fetch_cli_reports_async() -> None:
-    """Fetch NWS CLI (Daily Climate Reports) for settlement verification.
+    """Fetch NWS CLI (Daily Climate Reports) and create Settlement records.
 
-    The CLI report contains the official high temperature used by Kalshi
-    for market settlement. It is typically published the morning after
-    the settlement day.
+    For each city, fetches the CLI text product from NWS, parses the
+    official observed high temperature, and creates a Settlement record
+    in the database. The downstream `_settle_and_postmortem()` task
+    (trading scheduler) uses these Settlement records to resolve trades.
 
-    Note: Full CLI report parsing is a future enhancement. For now,
-    this fetches the NWS period forecast and gridpoint data as a
-    placeholder for settlement data.
+    The CLI report is published ~7-8 AM local time the morning after
+    the settlement day. Duplicate settlements (same city + date) are
+    detected and skipped.
+
+    Errors for individual cities are logged but do not fail the entire
+    operation, ensuring partial data is still captured.
     """
     for city in VALID_CITIES:
         try:
-            # The CLI endpoint would be:
-            # https://forecast.weather.gov/product.php?
-            #     site={office}&issuedby={station}&product=CLI
-            # For now, we fetch the latest gridpoint data which includes
-            # observed max temperature once the day has passed.
-            nws_grid = await fetch_nws_gridpoint(city)
-            if nws_grid:
-                await _store_weather_data(nws_grid)
+            # 1. Fetch raw CLI text from NWS
+            cli_text = await fetch_nws_cli(city)
+
+            # 2. Parse text to extract temps and metadata
+            report = parse_cli_text(cli_text)
+
+            # 3. Create Settlement record in DB (with duplicate check)
+            session = await get_task_session()
+            try:
+                existing = await session.execute(
+                    select(Settlement).where(
+                        Settlement.city == CityEnum(city),
+                        Settlement.settlement_date == report.report_date,
+                    )
+                )
+                if existing.scalar_one_or_none() is not None:
+                    logger.info(
+                        "Settlement already exists, skipping",
+                        extra={
+                            "data": {
+                                "city": city,
+                                "date": str(report.report_date),
+                            }
+                        },
+                    )
+                    continue
+
+                settlement = Settlement(
+                    city=CityEnum(city),
+                    settlement_date=report.report_date,
+                    actual_high_f=report.high_f,
+                    actual_low_f=report.low_f,
+                    source="NWS_CLI",
+                    raw_data={
+                        "station": report.station,
+                        "raw_text": report.raw_text[:2000],
+                    },
+                )
+                session.add(settlement)
+                await session.commit()
+
                 WEATHER_FETCHES_TOTAL.labels(source="NWS_CLI", city=city, outcome="success").inc()
                 logger.info(
-                    "Fetched CLI-equivalent data for settlement",
+                    "Created settlement record from CLI report",
                     extra={
                         "data": {
                             "city": city,
-                            "count": len(nws_grid),
+                            "date": str(report.report_date),
+                            "high_f": report.high_f,
+                            "low_f": report.low_f,
+                            "station": report.station,
                         }
                     },
                 )
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+
         except Exception as exc:
             WEATHER_FETCHES_TOTAL.labels(source="NWS_CLI", city=city, outcome="error").inc()
             logger.error(
-                "CLI report fetch failed",
+                "CLI report fetch/parse failed",
                 extra={"data": {"city": city, "error": str(exc)}},
             )
 

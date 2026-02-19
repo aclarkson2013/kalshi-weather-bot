@@ -1,12 +1,14 @@
 """NWS (National Weather Service) API client.
 
 Handles fetching forecast data from the NWS API (api.weather.gov),
-including period forecasts (12-hour blocks) and raw gridpoint data.
+including period forecasts (12-hour blocks), raw gridpoint data, and
+CLI (Daily Climate Report) text products for settlement.
 
 Key endpoints used:
   - /points/{lat},{lon}          -> Grid coordinate lookup (cached)
   - /gridpoints/{o}/{x},{y}/forecast  -> Period forecasts (Fahrenheit)
   - /gridpoints/{o}/{x},{y}          -> Raw gridpoint data (Celsius!)
+  - forecast.weather.gov/product.php  -> CLI text product (settlement temps)
 
 All fetch operations include exponential backoff retry logic and
 rate limiting to respect NWS API guidelines.
@@ -139,6 +141,111 @@ async def fetch_with_retry(
                 ) from exc
 
     # Should never reach here, but just in case
+    raise FetchError(f"All retries exhausted for {url}") from last_error
+
+
+async def fetch_text_with_retry(
+    url: str,
+    max_retries: int = 3,
+    headers: dict | None = None,
+    params: dict | None = None,
+) -> str:
+    """Fetch a URL and return the response as text (not JSON).
+
+    Identical retry/rate-limit logic as fetch_with_retry, but returns
+    response.text instead of response.json(). Used for NWS CLI products
+    which return plain text, not JSON.
+
+    Args:
+        url: The URL to fetch.
+        max_retries: Maximum number of retries after the initial attempt.
+        headers: Optional HTTP headers (merged with default User-Agent).
+        params: Optional query parameters.
+
+    Returns:
+        Response body as text string.
+
+    Raises:
+        FetchError: If all retries are exhausted.
+    """
+    settings = get_settings()
+    default_headers = {"User-Agent": settings.nws_user_agent}
+    if headers:
+        default_headers.update(headers)
+
+    last_error: Exception | None = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            await nws_limiter.acquire()
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    url,
+                    headers=default_headers,
+                    params=params,
+                )
+                response.raise_for_status()
+                return response.text
+
+        except httpx.HTTPStatusError as exc:
+            last_error = exc
+            status_code = exc.response.status_code
+
+            if status_code >= 500 and attempt < max_retries:
+                wait = 2**attempt
+                logger.warning(
+                    f"NWS returned {status_code}, retrying (text)",
+                    extra={
+                        "data": {
+                            "url": url,
+                            "status_code": status_code,
+                            "attempt": attempt + 1,
+                            "wait_seconds": wait,
+                        }
+                    },
+                )
+                await asyncio.sleep(wait)
+            else:
+                logger.error(
+                    "HTTP error fetching text URL",
+                    extra={
+                        "data": {
+                            "url": url,
+                            "status_code": status_code,
+                            "attempts": attempt + 1,
+                        }
+                    },
+                )
+                raise FetchError(
+                    f"HTTP {status_code} fetching {url} after {attempt + 1} attempts"
+                ) from exc
+
+        except httpx.RequestError as exc:
+            last_error = exc
+
+            if attempt < max_retries:
+                wait = 2**attempt
+                logger.warning(
+                    "Network error, retrying (text)",
+                    extra={
+                        "data": {
+                            "url": url,
+                            "error": str(exc),
+                            "attempt": attempt + 1,
+                            "wait_seconds": wait,
+                        }
+                    },
+                )
+                await asyncio.sleep(wait)
+            else:
+                logger.error(
+                    "Network error fetching text URL, all retries exhausted",
+                    extra={"data": {"url": url, "error": str(exc)}},
+                )
+                raise FetchError(
+                    f"Network error fetching {url} after {attempt + 1} attempts: {exc}"
+                ) from exc
+
     raise FetchError(f"All retries exhausted for {url}") from last_error
 
 
@@ -320,3 +427,65 @@ async def fetch_nws_gridpoint(city: str) -> list[WeatherData]:
     )
 
     return results
+
+
+# ─── CLI (Daily Climate Report) Fetcher ───
+
+NWS_CLI_BASE_URL = "https://forecast.weather.gov/product.php"
+
+
+def build_cli_url(city: str) -> str:
+    """Build the NWS CLI product URL for a city.
+
+    The CLI (Daily Climate Report) is a text product published by NWS
+    forecast offices. It contains the official observed temperatures
+    used by Kalshi for weather market settlement.
+
+    Args:
+        city: Kalshi city code (NYC, CHI, MIA, AUS).
+
+    Returns:
+        Full URL for the NWS CLI text product.
+
+    Raises:
+        KeyError: If city is not a valid city code.
+    """
+    config = STATION_CONFIGS[city]
+    return (
+        f"{NWS_CLI_BASE_URL}?site={config.nws_office}"
+        f"&issuedby={config.station_id}&product=CLI&format=txt"
+    )
+
+
+async def fetch_nws_cli(city: str) -> str:
+    """Fetch the NWS CLI (Daily Climate Report) text for a city.
+
+    The CLI report is published ~7-8 AM local time the morning after
+    the settlement day. It contains the official observed high/low
+    temperatures for the previous day.
+
+    Args:
+        city: Kalshi city code (NYC, CHI, MIA, AUS).
+
+    Returns:
+        Raw CLI report text string.
+
+    Raises:
+        KeyError: If city is not a valid city code.
+        FetchError: If the fetch fails after retries.
+    """
+    url = build_cli_url(city)
+
+    logger.info(
+        "Fetching NWS CLI report",
+        extra={"data": {"city": city, "url": url}},
+    )
+
+    text = await fetch_text_with_retry(url)
+
+    logger.info(
+        "Fetched NWS CLI report",
+        extra={"data": {"city": city, "text_length": len(text)}},
+    )
+
+    return text

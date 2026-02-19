@@ -3,9 +3,12 @@
 Tests cover:
 - _store_weather_data: DB storage of WeatherData objects
 - _fetch_all_forecasts_async: Orchestrates all fetches per city
-- _fetch_cli_reports_async: Fetches gridpoint data for settlement
+- _fetch_cli_reports_async: CLI fetch + Settlement record creation
 - fetch_all_forecasts: Celery task wrapper
 - fetch_cli_reports: Celery task wrapper
+
+NOTE: Comprehensive CLI fetch/parse tests are in tests/weather/test_cli_fetch.py
+and tests/weather/test_cli_parser.py.
 """
 
 from __future__ import annotations
@@ -253,68 +256,110 @@ class TestFetchAllForecastsAsync:
 
 
 # ─── _fetch_cli_reports_async Tests ───
+# NOTE: Comprehensive tests in tests/weather/test_cli_fetch.py.
 
 
 class TestFetchCliReportsAsync:
-    """Tests for _fetch_cli_reports_async -- fetches gridpoint data for settlement."""
+    """Tests for _fetch_cli_reports_async -- CLI fetch + Settlement creation."""
 
     @pytest.mark.asyncio
-    async def test_fetches_and_stores_per_city(self) -> None:
-        """Gridpoint fetch and store are called once per city."""
+    async def test_fetches_cli_per_city(self) -> None:
+        """fetch_nws_cli is called once per city (4 cities)."""
         from backend.weather.scheduler import _fetch_cli_reports_async
 
-        mock_grid = AsyncMock(return_value=[_make_weather_data(source="NWS-grid")])
-        mock_store = AsyncMock(return_value=1)
+        mock_fetch = AsyncMock(return_value="CLI TEXT")
+        mock_report = MagicMock()
+        mock_report.high_f = 54.0
+        mock_report.low_f = 38.0
+        mock_report.station = "KNYC"
+        mock_report.report_date = date(2026, 2, 18)
+        mock_report.raw_text = "CLI TEXT"
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
 
         with (
-            patch("backend.weather.scheduler.fetch_nws_gridpoint", mock_grid),
-            patch("backend.weather.scheduler._store_weather_data", mock_store),
+            patch("backend.weather.scheduler.fetch_nws_cli", mock_fetch),
+            patch("backend.weather.scheduler.parse_cli_text", return_value=mock_report),
+            patch(
+                "backend.weather.scheduler.get_task_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
         ):
             await _fetch_cli_reports_async()
 
-        assert mock_grid.call_count == 4
-        assert mock_store.call_count == 4
+        assert mock_fetch.call_count == 4
 
     @pytest.mark.asyncio
     async def test_city_failure_continues_to_next(self) -> None:
         """One city failing doesn't stop fetching for other cities."""
         from backend.weather.scheduler import _fetch_cli_reports_async
 
+        mock_report = MagicMock()
+        mock_report.high_f = 54.0
+        mock_report.low_f = 38.0
+        mock_report.station = "KNYC"
+        mock_report.report_date = date(2026, 2, 18)
+        mock_report.raw_text = "CLI TEXT"
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
         # Fail for first call, succeed for rest
-        mock_grid = AsyncMock(
+        mock_fetch = AsyncMock(
             side_effect=[
                 ConnectionError("fail"),
-                [_make_weather_data(city="CHI")],
-                [_make_weather_data(city="MIA")],
-                [_make_weather_data(city="AUS")],
+                "CLI TEXT",
+                "CLI TEXT",
+                "CLI TEXT",
             ]
         )
-        mock_store = AsyncMock(return_value=1)
 
         with (
-            patch("backend.weather.scheduler.fetch_nws_gridpoint", mock_grid),
-            patch("backend.weather.scheduler._store_weather_data", mock_store),
+            patch("backend.weather.scheduler.fetch_nws_cli", mock_fetch),
+            patch("backend.weather.scheduler.parse_cli_text", return_value=mock_report),
+            patch(
+                "backend.weather.scheduler.get_task_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
         ):
             await _fetch_cli_reports_async()
 
-        assert mock_grid.call_count == 4
-        assert mock_store.call_count == 3  # Skipped the failed city
+        assert mock_fetch.call_count == 4
+        # Only 3 cities created settlements (first city failed)
+        assert mock_session.add.call_count == 3
 
     @pytest.mark.asyncio
-    async def test_empty_gridpoint_skips_storage(self) -> None:
-        """When gridpoint returns empty list, _store_weather_data is not called."""
+    async def test_parse_failure_handled_gracefully(self) -> None:
+        """When parse_cli_text raises ParseError, the error is caught per-city."""
+        from backend.weather.exceptions import ParseError
         from backend.weather.scheduler import _fetch_cli_reports_async
 
-        mock_grid = AsyncMock(return_value=[])
-        mock_store = AsyncMock()
-
         with (
-            patch("backend.weather.scheduler.fetch_nws_gridpoint", mock_grid),
-            patch("backend.weather.scheduler._store_weather_data", mock_store),
+            patch(
+                "backend.weather.scheduler.fetch_nws_cli",
+                new_callable=AsyncMock,
+                return_value="BAD TEXT",
+            ),
+            patch(
+                "backend.weather.scheduler.parse_cli_text",
+                side_effect=ParseError("No TEMPERATURE section"),
+            ),
+            patch(
+                "backend.weather.scheduler.get_task_session",
+                new_callable=AsyncMock,
+            ),
         ):
+            # Should NOT raise
             await _fetch_cli_reports_async()
-
-        mock_store.assert_not_awaited()
 
 
 # ─── fetch_all_forecasts Celery Task Tests ───
