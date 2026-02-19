@@ -999,103 +999,81 @@ curl -H "User-Agent: BozWeatherTrader/1.0" \
 
 ## CI/CD GitHub Actions Workflow
 
-Tests run automatically via GitHub Actions on every push and PR. The workflow enforces linting, unit tests, integration tests, safety tests, and coverage thresholds.
+Tests run automatically via GitHub Actions on every push to `master` and every PR targeting `master`. The workflow is at `.github/workflows/ci.yml`.
 
 ```yaml
-# .github/workflows/test.yml
-name: Tests
+# .github/workflows/ci.yml (actual deployed workflow)
+name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
-  lint:
+  backend-lint:
+    name: Backend Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - run: pip install ruff
-      - run: ruff check backend/ tests/
-      - run: ruff format --check backend/ tests/
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install ".[dev]"
+      - name: Ruff check
+        run: ruff check backend/ tests/
+      - name: Ruff format check
+        run: ruff format --check backend/ tests/
 
-  backend-tests:
+  backend-test:
+    name: Backend Tests
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: boz_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports: ['6379:6379']
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - run: pip install -e ".[dev]"
-      - name: Run unit tests
-        run: pytest tests/ -m "not integration" --cov=backend --cov-report=xml
-        env:
-          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/boz_test
-          REDIS_URL: redis://localhost:6379/1
-      - name: Run integration tests
-        run: pytest tests/integration/ --integration
-        env:
-          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/boz_test
-          REDIS_URL: redis://localhost:6379/1
-      - name: Run safety tests
-        run: pytest tests/trading/test_safety.py -v
-      - name: Check coverage thresholds
-        run: |
-          pytest --cov=backend/weather --cov-fail-under=80
-          pytest --cov=backend/kalshi --cov-fail-under=80
-          pytest --cov=backend/prediction --cov-fail-under=85
-          pytest --cov=backend/trading --cov-fail-under=90
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install ".[dev]"
+      - name: Run tests
+        run: python -m pytest tests/ -x -q --tb=short
 
-  frontend-tests:
+  frontend:
+    name: Frontend Lint & Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - working-directory: frontend
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
         run: npm ci
-      - working-directory: frontend
+      - name: Lint
         run: npm run lint
-      - working-directory: frontend
-        run: npm test -- --coverage
+      - name: Tests
+        run: npm test
 ```
 
 ### CI/CD Pipeline Summary
 
-| Step | What It Does | Failure Blocks Merge? |
+| Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
-| Lint | `ruff check` + `ruff format --check` | Yes |
-| Unit tests | All tests except `@pytest.mark.integration` | Yes |
-| Integration tests | Full pipeline tests with Docker services | Yes |
-| Safety tests | `tests/trading/test_safety.py` — risk limits, key security | Yes |
-| Coverage check | Per-module thresholds (80-90%) | Yes |
-| Frontend lint | ESLint | Yes |
-| Frontend tests | Jest/Vitest with coverage | Yes |
+| `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (466 tests, in-memory SQLite, no Docker needed) | Yes |
+| `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 82 tests) | Yes |
 
-On merge to main, an additional job runs:
-- **Full simulation test** — 7 days of historical data replayed through the complete pipeline
+**Key design decisions:**
+- No PostgreSQL/Redis services needed — backend tests use in-memory SQLite and mock Redis
+- Backend lint and test are separate jobs so lint failures are clearly distinguished from test failures
+- Frontend lint + test share one job since they share the `npm ci` step
+- ESLint 8 is required (Next.js 14 is incompatible with ESLint 9)
 
 ---
 

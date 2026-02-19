@@ -28,7 +28,7 @@ tests/
 
 - **Backend:** Python 3.11+, FastAPI, Celery + Redis, PostgreSQL
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
-- **ML:** XGBoost, scikit-learn, pandas, numpy
+- **ML/Stats:** scipy, numpy (Gaussian CDF for bracket probabilities)
 - **Containerization:** Docker + Docker Compose
 - **Testing:** pytest (backend), Jest/Vitest (frontend)
 - **CI/CD:** GitHub Actions
