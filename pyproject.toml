@@ -50,6 +50,7 @@ asyncio_mode = "auto"
 markers = [
     "integration: marks tests requiring Docker services (deselect with '-m not integration')",
     "safety: marks critical safety tests",
+    "e2e: marks end-to-end smoke tests (deselect with '-m not e2e')",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
