@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import AsyncClient
@@ -53,12 +54,13 @@ async def test_dashboard_today_pnl(
     db: AsyncSession,
 ) -> None:
     """GET /api/dashboard calculates today's P&L from settled trades."""
-    # Add a winning trade settled today
+    # Add a winning trade settled today — use ET timezone to match the dashboard query
+    today_et = datetime.now(ZoneInfo("America/New_York")).date()
     trade = make_trade(
         user_id="test-user-001",
         status=TradeStatus.WON,
         pnl_cents=75,
-        trade_date=date.today(),
+        trade_date=today_et,
         settled_at=datetime.now(UTC),
     )
     db.add(trade)
