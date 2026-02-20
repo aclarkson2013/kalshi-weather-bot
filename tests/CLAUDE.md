@@ -91,6 +91,14 @@ tests/
 │   ├── test_manager.py  → ConnectionManager connect/disconnect/broadcast (12 tests)
 │   ├── test_subscriber.py → Redis pub/sub subscriber forwarding (6 tests)
 │   └── test_router.py   → WebSocket /ws endpoint (4 tests)
+├── backtesting/         → Backtesting engine tests (95 tests)
+│   ├── conftest.py      → Backtest fixtures (configs, predictions, market data, trade helpers)
+│   ├── test_schemas.py          → Config validation, defaults, date range, edge cases (19 tests)
+│   ├── test_risk_sim.py         → Bankroll tracking, daily limits, consecutive loss cooldowns (21 tests)
+│   ├── test_data_loader.py      → Synthetic price gen, tickers, grouping, filtering (19 tests)
+│   ├── test_engine.py           → Full simulation loop, empty days, partial data, Kelly (13 tests)
+│   ├── test_metrics.py          → Win rate, ROI, Sharpe, drawdown, per-city stats (18 tests)
+│   └── test_integration.py      → End-to-end multi-city backtest, Kelly vs flat, serialization (5 tests)
 ├── e2e/                 → End-to-end smoke tests (real auth path, real middleware)
 │   ├── conftest.py      → E2E fixtures (e2e_engine, authed_client, bare_client, seed helpers)
 │   └── test_smoke.py    → 35 smoke tests across 11 test classes
@@ -1118,7 +1126,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (985 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (1080 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 110 tests) | Yes |
 | `docker-build` | Docker build smoke test for backend + frontend Dockerfiles | Yes |
 

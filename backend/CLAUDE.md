@@ -32,6 +32,13 @@ backend/
 ├── kalshi/              → Agent 2: Kalshi API client (auth, orders, markets, WS feed, cache)
 ├── prediction/          → Agent 3: Prediction engine (ensemble + XGBoost ML + brackets)
 ├── trading/             → Agent 4: Trading engine
+├── backtesting/         → Backtesting engine (sync simulation, reuses trading pure functions)
+│   ├── schemas.py       → BacktestConfig, BacktestResult, BacktestDay, SimulatedTrade, CityStats, KellyStats
+│   ├── risk_sim.py      → In-memory BacktestRiskManager (bankroll, daily limits, consecutive losses)
+│   ├── data_loader.py   → Synthetic price/ticker generation, prediction grouping/filtering
+│   ├── engine.py        → Day-by-day simulation loop (reuses scan_all_brackets, _did_bracket_win, estimate_fees)
+│   ├── metrics.py       → Win rate, ROI, Sharpe ratio, max drawdown, per-city stats, Kelly effectiveness
+│   └── exceptions.py    → BacktestError, InsufficientDataError
 ├── websocket/           → Real-time event streaming (Redis pub/sub → WebSocket → browser)
 │   ├── events.py        → WebSocketEvent model, publish_event() async + publish_event_sync() wrapper
 │   ├── manager.py       → ConnectionManager singleton (tracks WS connections, broadcasts)

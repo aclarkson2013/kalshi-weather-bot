@@ -1,9 +1,9 @@
 # Product Requirements Document (PRD)
 # Boz Weather Trader
 
-**Version:** 1.1
-**Date:** February 20, 2026
-**Status:** MVP Complete — Phase 1 shipped (21 phases, 953 tests)
+**Version:** 1.2
+**Date:** February 19, 2026
+**Status:** MVP Complete + Phase 2 features in progress (25 phases, 1190 tests)
 
 ---
 
@@ -496,7 +496,7 @@ Your Machine (homelab / cloud VPS)
 - [x] **XGBoost ML model** - Trained on historical data for improved predictions (Phase 23)
 - [ ] **Multiple model ensemble** - Combine statistical + ML models with weighted voting
 - [x] **Kelly Criterion position sizing** - Optimal bet sizing based on edge and bankroll (Phase 24)
-- [ ] **Backtesting module** - Test strategy against historical data
+- [x] **Backtesting module** - Test strategy against historical data (Phase 25)
 - [ ] **Historical forecast accuracy tracking** - Monitor model calibration over time
 
 #### P2 - Nice to Have
@@ -534,7 +534,8 @@ Your Machine (homelab / cloud VPS)
 | 22 | Performance + prod deploy | N+1 fix, SQL aggregation, GZip, smart Cache-Control, multi-stage Docker, prod compose, CI coverage | — |
 | 23 | XGBoost ML model | 21-feature regression, ensemble blend, training pipeline, Celery task, graceful fallback | 62 |
 | 24 | Kelly Criterion sizing | Fractional Kelly (0.25×), fee-adjusted, wired into ev_calculator + scheduler, Prometheus metrics | 18 |
-| **Total** | | **985 backend + 110 frontend = 1095 tests** | |
+| 25 | Backtesting module | Day-by-day simulation engine, synthetic prices, in-memory risk sim, metrics (Sharpe/drawdown/ROI), Kelly comparison, API endpoint | 95 |
+| **Total** | | **1080 backend + 110 frontend = 1190 tests** | |
 
 ---
 
