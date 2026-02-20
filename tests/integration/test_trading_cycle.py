@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
@@ -193,9 +194,27 @@ async def test_loss_limit_blocks(
     rm = RiskManager(settings=tight_settings, db=db, user_id=test_user.id)
 
     # Insert settled losing trades totaling -50c P&L
+    # trade_date must match get_trading_day() which uses ET.  Near midnight UTC,
+    # datetime.now(UTC).date() can differ from the ET date → query misses trades.
     now = datetime.now(UTC)
-    await insert_trade(db, test_user.id, status=TradeStatus.LOST, pnl_cents=-25, settled_at=now)
-    await insert_trade(db, test_user.id, status=TradeStatus.LOST, pnl_cents=-25, settled_at=now)
+    trading_day = datetime.now(ZoneInfo("America/New_York")).date()
+    trade_dt = datetime(trading_day.year, trading_day.month, trading_day.day, 12, 0, 0, tzinfo=UTC)
+    await insert_trade(
+        db,
+        test_user.id,
+        status=TradeStatus.LOST,
+        pnl_cents=-25,
+        settled_at=now,
+        trade_date=trade_dt,
+    )
+    await insert_trade(
+        db,
+        test_user.id,
+        status=TradeStatus.LOST,
+        pnl_cents=-25,
+        settled_at=now,
+        trade_date=trade_dt,
+    )
 
     signal = TradeSignal(
         city="NYC",

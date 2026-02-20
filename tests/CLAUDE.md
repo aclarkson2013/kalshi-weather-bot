@@ -10,7 +10,7 @@ tests/
 ├── factories.py         → Test data factories for generating realistic test data
 ├── test_alert_rules.py         → Alert rule YAML validation (22 tests across 6 files, 17 rules)
 ├── test_alertmanager_config.py → Alertmanager config validation (14 tests)
-├── test_grafana_dashboards.py  → Dashboard JSON validation (13 tests across 2 dashboards)
+├── test_grafana_dashboards.py  → Dashboard JSON validation (13 tests across 3 dashboards)
 ├── fixtures/            → Mock API response JSON files
 │   ├── nws_points_nyc.json
 │   ├── nws_forecast_nyc.json
@@ -1113,7 +1113,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (834 tests, in-memory SQLite, no Docker needed) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (843 tests, in-memory SQLite, no Docker needed) | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 110 tests) | Yes |
 
 **Key design decisions:**

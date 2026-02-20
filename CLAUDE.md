@@ -26,8 +26,8 @@ monitoring/
   ├── alertmanager/        → Alertmanager config (webhook routing, severity-based repeat, inhibit rules)
   └── grafana/     → Grafana provisioning + dashboard JSON files
       ├── provisioning/  → Auto-provisioned datasources + dashboard provider
-      └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels)
-tests/                   → 834 backend tests (all passing)
+      └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels) + Kalshi WS Feed (6 panels)
+tests/                   → 843 backend tests (all passing)
   ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (109)
   ├── weather/     → Weather pipeline: NWS, Open-Meteo, normalizer, stations, CLI parser, scheduler (140)
   ├── kalshi/      → Kalshi client: auth, REST, WS, markets, orders, models, cache, market feed (119)
@@ -37,7 +37,7 @@ tests/                   → 834 backend tests (all passing)
   ├── websocket/   → WebSocket: events, manager, subscriber, router (35)
   ├── e2e/         → End-to-end smoke tests (35)
   ├── integration/ → Cross-module integration tests (47)
-  └── (root)       → Grafana dashboards, alert rules, alertmanager config validation (49)
+  └── (root)       → Grafana dashboards, alert rules, alertmanager config validation (58)
 ```
 
 ## Tech Stack

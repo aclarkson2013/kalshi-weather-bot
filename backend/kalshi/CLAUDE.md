@@ -1285,6 +1285,16 @@ The trading scheduler (`backend/trading/scheduler.py`) was modified to try Redis
 - **KalshiWSFeedStalled** (warning, 2m) — connected but no messages
 - **KalshiWSReconnectsHigh** (warning, 5m) — >3 reconnects in 15m
 
+### Grafana Dashboard (`monitoring/grafana/dashboards/kalshi-ws-feed.json`)
+
+6-panel dashboard visualizing all 4 Kalshi WS metrics:
+1. **Feed Connection Status** (stat) — connected/disconnected with color
+2. **Reconnections (Last Hour)** (stat) — reconnect count with thresholds
+3. **Cache Hit Rate** (gauge) — % of lookups from cache vs REST fallback
+4. **Message Throughput by Channel** (timeseries) — stacked area by channel
+5. **Reconnection Events** (timeseries) — reconnect spikes over time
+6. **Cache Source Distribution** (piechart) — donut chart of cache vs REST
+
 ### WebSocket Demo Mode Support
 
 `KalshiWebSocket` now accepts an optional `url` parameter:

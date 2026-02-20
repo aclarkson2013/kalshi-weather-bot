@@ -8,6 +8,7 @@ and consecutive loss halts.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,8 @@ from backend.common.schemas import TradeSignal, UserSettings
 from backend.trading.cooldown import CooldownManager
 from backend.trading.risk_manager import RiskManager
 from tests.integration.conftest import insert_trade
+
+ET = ZoneInfo("America/New_York")
 
 
 def _make_signal(price_cents: int = 25, ev: float = 0.06) -> TradeSignal:
@@ -86,9 +89,23 @@ async def test_loss_limit_after_settlements(
     rm = RiskManager(settings=settings, db=db, user_id=test_user.id)
     now = datetime.now(UTC)
 
+    # trade_date must match get_trading_day() which uses ET.  Near midnight UTC,
+    # datetime.now(UTC).date() can differ from the ET date → query misses trades.
+    # Build a naive datetime whose .date() equals today in ET so SQLite's
+    # func.date() returns the same value as get_trading_day().
+    trading_day = datetime.now(ET).date()
+    trade_dt = datetime(trading_day.year, trading_day.month, trading_day.day, 12, 0, 0, tzinfo=UTC)
+
     # 3 losses: -25c each = -75c total
     for _ in range(3):
-        await insert_trade(db, test_user.id, status=TradeStatus.LOST, pnl_cents=-25, settled_at=now)
+        await insert_trade(
+            db,
+            test_user.id,
+            status=TradeStatus.LOST,
+            pnl_cents=-25,
+            settled_at=now,
+            trade_date=trade_dt,
+        )
 
     signal = _make_signal(price_cents=15, ev=0.10)
     allowed, reason = await rm.check_trade(signal)

@@ -1,9 +1,9 @@
 # Product Requirements Document (PRD)
 # Boz Weather Trader
 
-**Version:** 1.0
-**Date:** February 19, 2026
-**Status:** MVP Complete — Phase 1 shipped (20 phases, 944 tests)
+**Version:** 1.1
+**Date:** February 20, 2026
+**Status:** MVP Complete — Phase 1 shipped (21 phases, 953 tests)
 
 ---
 
@@ -530,7 +530,8 @@ Your Machine (homelab / cloud VPS)
 | 18 | WebSocket streaming | Redis pub/sub → FastAPI WS → browser, SWR revalidation, 3 WS metrics | 35 |
 | 19 | Prometheus alerting | 14 alert rules, 5 groups, Alertmanager webhook routing, inhibit rules | 56 |
 | 20 | Kalshi WS market feed | Persistent WS feed, Redis price cache, cache-first trading, 3 alert rules | 42 |
-| **Total** | | **834 backend + 110 frontend = 944 tests** | |
+| 21 | Grafana WS dashboard | Kalshi WS Feed dashboard (6 panels), timezone test fixes | +9 |
+| **Total** | | **843 backend + 110 frontend = 953 tests** | |
 
 ---
 
