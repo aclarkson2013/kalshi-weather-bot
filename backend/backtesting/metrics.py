@@ -98,7 +98,7 @@ def _compute_sharpe(result: BacktestResult) -> float:
     variance = sum((r - mean_return) ** 2 for r in daily_returns) / len(daily_returns)
     std_return = math.sqrt(variance)
 
-    if std_return == 0:
+    if std_return < 1e-12:
         return 0.0
 
     # Annualize: Sharpe = (mean_daily / std_daily) * sqrt(252)
