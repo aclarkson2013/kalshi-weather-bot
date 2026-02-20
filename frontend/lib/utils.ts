@@ -131,3 +131,65 @@ export function confidenceBadgeColor(confidence: string): string {
       return "bg-gray-100 text-gray-800";
   }
 }
+
+// ─── Settlement Date Utilities ───
+
+const MONTH_MAP: Record<string, number> = {
+  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
+};
+
+/**
+ * Parse the event (settlement) date from a Kalshi market ticker.
+ *
+ * Ticker format: KXHIGH{CITY}-{YY}{MMM}{DD}-{TYPE}{STRIKE}
+ * Example: KXHIGHCHI-26FEB21-T35 → Feb 21, 2026
+ *
+ * Returns null if the ticker is missing or can't be parsed.
+ */
+export function parseSettlementDate(ticker: string | null | undefined): Date | null {
+  if (!ticker) return null;
+
+  // Match the date segment: 2-digit year, 3-letter month, 2-digit day
+  const match = ticker.match(/(\d{2})([A-Z]{3})(\d{2})/);
+  if (!match) return null;
+
+  const year = 2000 + parseInt(match[1], 10);
+  const month = MONTH_MAP[match[2]];
+  const day = parseInt(match[3], 10);
+
+  if (month === undefined || isNaN(day)) return null;
+
+  return new Date(year, month, day, 12, 0, 0); // noon to avoid timezone issues
+}
+
+/**
+ * Return a human-readable settlement countdown string.
+ *
+ * - "Settles today" if the event date is today
+ * - "Settles tomorrow" if the event date is tomorrow
+ * - "Settles Fri, Feb 21" for dates further out
+ * - "Settling..." if the event date has passed but no settlement yet
+ * - null if no ticker/date available
+ */
+export function settlementCountdown(
+  ticker: string | null | undefined,
+  isSettled?: boolean,
+): string | null {
+  if (isSettled) return null; // already settled, no countdown needed
+
+  const eventDate = parseSettlementDate(ticker);
+  if (!eventDate) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const event = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+  const diffDays = Math.round((event.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return "Settling...";
+  if (diffDays === 0) return "Settles today";
+  if (diffDays === 1) return "Settles tomorrow";
+
+  return `Settles ${formatDate(eventDate)}`;
+}

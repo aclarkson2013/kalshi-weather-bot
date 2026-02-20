@@ -208,6 +208,7 @@ async def execute_trade(
         kalshi_order_id=order_id,
         city=signal.city,
         date=now.date(),
+        market_ticker=signal.market_ticker,
         bracket_label=signal.bracket,
         side=signal.side,
         price_cents=signal.price_cents,

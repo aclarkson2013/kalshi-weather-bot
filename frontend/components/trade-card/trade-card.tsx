@@ -10,6 +10,7 @@ import {
   formatDate,
   formatPnL,
   formatProbability,
+  settlementCountdown,
   statusColor,
 } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export default function TradeCard({ trade }: TradeCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const isSettled = trade.status === "WON" || trade.status === "LOST";
+  const countdown = settlementCountdown(trade.market_ticker, isSettled);
   const borderColor =
     trade.status === "WON"
       ? "border-l-boz-success"
@@ -62,6 +64,11 @@ export default function TradeCard({ trade }: TradeCardProps) {
             <span className="text-xs text-boz-neutral">
               {trade.side.toUpperCase()} @ {centsToDollars(trade.price_cents)}
             </span>
+            {countdown && (
+              <span className="text-xs font-medium text-boz-warning">
+                {countdown}
+              </span>
+            )}
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import {
   confidenceBadgeColor,
   formatDate,
   formatProbability,
+  settlementCountdown,
   timeRemaining,
 } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ export default function PendingTradeCard({
   const isExpired = remaining === "Expired";
   const evPercent = (trade.ev * 100).toFixed(1);
   const isPositiveEv = trade.ev > 0;
+  const countdown = settlementCountdown(trade.market_ticker);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
@@ -59,6 +61,12 @@ export default function PendingTradeCard({
       <p className="text-xs text-boz-neutral mb-2">
         {formatDate(trade.created_at)} &middot;{" "}
         {trade.side.toUpperCase()} @ ${centsToDollars(trade.price_cents)}
+        {countdown && (
+          <>
+            {" "}&middot;{" "}
+            <span className="text-boz-warning font-medium">{countdown}</span>
+          </>
+        )}
       </p>
 
       {/* Trade details */}

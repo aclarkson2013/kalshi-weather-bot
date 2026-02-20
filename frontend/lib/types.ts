@@ -58,6 +58,7 @@ export interface TradeRecord {
   kalshi_order_id: string | null;
   city: CityCode;
   date: string; // ISO date string YYYY-MM-DD
+  market_ticker: string | null;
   bracket_label: string;
   side: TradeSide;
   price_cents: number;
@@ -86,6 +87,7 @@ export interface PendingTrade {
   id: string;
   city: CityCode;
   bracket: string;
+  market_ticker: string | null;
   side: TradeSide;
   price_cents: number;
   quantity: number;

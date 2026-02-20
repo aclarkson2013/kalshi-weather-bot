@@ -132,6 +132,7 @@ class TradeRecord(BaseModel):
     kalshi_order_id: str | None = None
     city: CityCode
     date: date
+    market_ticker: str | None = None
     bracket_label: str
     side: TradeSide
     price_cents: int
@@ -166,6 +167,7 @@ class PendingTrade(BaseModel):
     id: str
     city: CityCode
     bracket: str
+    market_ticker: str | None = None
     side: TradeSide
     price_cents: int
     quantity: int
