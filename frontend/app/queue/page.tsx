@@ -12,6 +12,7 @@ import PendingTradeCard from "@/components/trade-card/pending-trade-card";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import Skeleton from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
 import { approveTrade, rejectTrade } from "@/lib/api";
 import { usePendingTrades, useSettings } from "@/lib/hooks";
 import type { ConfidenceLevel, PendingTrade } from "@/lib/types";
@@ -69,8 +70,8 @@ function sortTrades(
 export default function QueuePage() {
   const { data: trades, error, isLoading } = usePendingTrades();
   const { data: settings } = useSettings();
+  const { showToast } = useToast();
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("ev");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
@@ -93,51 +94,100 @@ export default function QueuePage() {
 
   // Optimistically remove a trade card from the list before the API call completes.
   // If the call fails, SWR revalidation restores the card automatically.
-  const optimisticRemove = useCallback(
-    (id: string) => {
-      mutate(
-        "/api/queue",
-        (current: PendingTrade[] | undefined) =>
-          current ? current.filter((t) => t.id !== id) : current,
-        false, // don't revalidate yet — we'll do it after the API call
-      );
+  const optimisticRemove = useCallback((id: string) => {
+    mutate(
+      "/api/queue",
+      (current: PendingTrade[] | undefined) =>
+        current ? current.filter((t) => t.id !== id) : current,
+      false,
+    );
+  }, []);
+
+  const handleApprove = useCallback(
+    async (id: string) => {
+      setLoadingId(id);
+      optimisticRemove(id);
+      try {
+        await approveTrade(id);
+        showToast({
+          variant: "success",
+          title: "Trade approved!",
+          message: "Your order has been placed on Kalshi.",
+        });
+        await mutate("/api/queue");
+        await mutate("/api/dashboard");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Something went wrong";
+
+        // Detect "not filled" / resting orders
+        if (message.toLowerCase().includes("not filled") || message.toLowerCase().includes("resting")) {
+          showToast({
+            variant: "warning",
+            title: "Order not filled",
+            message:
+              "No one is taking the other side of this trade right now. Try again later or reject it.",
+            duration: 6000,
+          });
+        } else if (message.includes("REJECTED") || message.includes("APPROVED") || message.includes("EXPIRED")) {
+          showToast({
+            variant: "info",
+            title: "Trade already handled",
+            message: "This trade was already processed. Refreshing your queue.",
+          });
+        } else {
+          showToast({
+            variant: "warning",
+            title: "Approve failed",
+            message,
+            duration: 5000,
+          });
+        }
+        await mutate("/api/queue");
+      } finally {
+        setLoadingId(null);
+      }
     },
-    [],
+    [optimisticRemove, showToast],
   );
 
-  const handleApprove = useCallback(async (id: string) => {
-    setLoadingId(id);
-    setActionError(null);
-    optimisticRemove(id);
-    try {
-      await approveTrade(id);
-      // Revalidate queue and dashboard with fresh server data
-      await mutate("/api/queue");
-      await mutate("/api/dashboard");
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Approve failed");
-      // Revalidate to restore the card if the approve failed
-      await mutate("/api/queue");
-    } finally {
-      setLoadingId(null);
-    }
-  }, [optimisticRemove]);
+  const handleReject = useCallback(
+    async (id: string) => {
+      setLoadingId(id);
+      optimisticRemove(id);
+      try {
+        await rejectTrade(id);
+        showToast({
+          variant: "info",
+          title: "Trade rejected",
+          message: "The trade has been removed from your queue.",
+        });
+        await mutate("/api/queue");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Something went wrong";
 
-  const handleReject = useCallback(async (id: string) => {
-    setLoadingId(id);
-    setActionError(null);
-    optimisticRemove(id);
-    try {
-      await rejectTrade(id);
-      await mutate("/api/queue");
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Reject failed");
-      // Revalidate to restore the card if the reject failed
-      await mutate("/api/queue");
-    } finally {
-      setLoadingId(null);
-    }
-  }, [optimisticRemove]);
+        if (message.includes("REJECTED")) {
+          showToast({
+            variant: "info",
+            title: "Already rejected",
+            message: "This trade was already rejected. Refreshing your queue.",
+          });
+        } else {
+          showToast({
+            variant: "warning",
+            title: "Reject failed",
+            message,
+            duration: 5000,
+          });
+        }
+        await mutate("/api/queue");
+      } finally {
+        setLoadingId(null);
+      }
+    },
+    [optimisticRemove, showToast],
+  );
 
   const isAutoMode = settings?.trading_mode === "auto";
 
@@ -149,12 +199,6 @@ export default function QueuePage() {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-boz-primary">
           Auto mode is enabled. Trades are executed automatically without
           requiring manual approval.
-        </div>
-      )}
-
-      {actionError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-boz-danger">
-          {actionError}
         </div>
       )}
 

@@ -25,6 +25,12 @@ vi.mock("swr", async () => {
   return { ...actual, mutate: vi.fn() };
 });
 
+// Mock toast
+const mockShowToast = vi.fn();
+vi.mock("@/components/ui/toast", () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   usePathname: () => "/queue",
