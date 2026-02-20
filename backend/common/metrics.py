@@ -155,6 +155,32 @@ XGB_TRAINING_DURATION_SECONDS = Histogram(
 )
 
 
+# ─── Multi-Model ML Ensemble Metrics ───
+
+ML_PREDICTIONS_TOTAL = Counter(
+    "boz_ml_predictions_total",
+    "ML model temperature predictions",
+    labelnames=["city", "model", "status"],
+)
+
+ML_TRAINING_DURATION_SECONDS = Histogram(
+    "boz_ml_training_duration_seconds",
+    "Multi-model training duration",
+    buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0),
+)
+
+ML_ENSEMBLE_AGREEMENT_F = Histogram(
+    "boz_ml_ensemble_agreement_f",
+    "Spread (max-min) across ML model predictions in Fahrenheit",
+    buckets=(0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0),
+)
+
+ML_MODELS_AVAILABLE = Gauge(
+    "boz_ml_models_available",
+    "Number of ML models currently loaded and available",
+)
+
+
 # ─── Kelly Criterion Metrics ───
 
 KELLY_SIZING_TOTAL = Counter(

@@ -113,29 +113,27 @@ class TestGeneratePrediction:
             assert "NWS" in result.model_sources
 
 
-class TestPipelineXGBoostIntegration:
-    """Tests for XGBoost integration in the prediction pipeline."""
+class TestPipelineMultiModelIntegration:
+    """Tests for multi-model ML ensemble integration in the prediction pipeline."""
 
     @pytest.mark.asyncio
-    async def test_xgb_available_blends_temperature(
-        self, sample_forecasts, sample_brackets
-    ) -> None:
-        """When XGBoost is available, the final temp is blended."""
+    async def test_ml_available_blends_temperature(self, sample_forecasts, sample_brackets) -> None:
+        """When ML models are available, the final temp is blended."""
         with (
             patch(
                 "backend.prediction.pipeline.calculate_error_std",
                 new_callable=AsyncMock,
             ) as mock_std,
             patch(
-                "backend.prediction.pipeline._try_xgb_prediction",
-                return_value=60.0,
+                "backend.prediction.pipeline._try_multi_model_prediction",
+                return_value=(60.0, ["XGBoost", "RandomForest", "Ridge"]),
             ),
             patch(
                 "backend.prediction.pipeline.get_settings",
             ) as mock_settings,
         ):
             mock_std.return_value = 2.0
-            mock_settings.return_value = MagicMock(xgb_ensemble_weight=0.30)
+            mock_settings.return_value = MagicMock(ml_ensemble_weight=0.30)
 
             result = await generate_prediction(
                 city="NYC",
@@ -146,18 +144,20 @@ class TestPipelineXGBoostIntegration:
             )
 
             assert "XGBoost" in result.model_sources
+            assert "RandomForest" in result.model_sources
+            assert "Ridge" in result.model_sources
 
     @pytest.mark.asyncio
-    async def test_xgb_unavailable_falls_back(self, sample_forecasts, sample_brackets) -> None:
-        """When XGBoost returns None, pipeline uses ensemble-only."""
+    async def test_ml_unavailable_falls_back(self, sample_forecasts, sample_brackets) -> None:
+        """When ML models return None, pipeline uses ensemble-only."""
         with (
             patch(
                 "backend.prediction.pipeline.calculate_error_std",
                 new_callable=AsyncMock,
             ) as mock_std,
             patch(
-                "backend.prediction.pipeline._try_xgb_prediction",
-                return_value=None,
+                "backend.prediction.pipeline._try_multi_model_prediction",
+                return_value=(None, []),
             ),
         ):
             mock_std.return_value = 2.0
@@ -171,19 +171,20 @@ class TestPipelineXGBoostIntegration:
             )
 
             assert "XGBoost" not in result.model_sources
+            assert "RandomForest" not in result.model_sources
 
     @pytest.mark.asyncio
-    async def test_xgb_weight_zero_disables(self, sample_forecasts, sample_brackets) -> None:
-        """When xgb_ensemble_weight=0.0, XGBoost is not attempted."""
+    async def test_ml_weight_zero_disables(self, sample_forecasts, sample_brackets) -> None:
+        """When ml_ensemble_weight=0.0, ML is not attempted."""
         with (
             patch(
                 "backend.prediction.pipeline.calculate_error_std",
                 new_callable=AsyncMock,
             ) as mock_std,
             patch(
-                "backend.prediction.pipeline._try_xgb_prediction",
-                return_value=None,
-            ) as mock_xgb,
+                "backend.prediction.pipeline._try_multi_model_prediction",
+                return_value=(None, []),
+            ) as mock_ml,
         ):
             mock_std.return_value = 2.0
 
@@ -195,23 +196,21 @@ class TestPipelineXGBoostIntegration:
                 db_session=AsyncMock(),
             )
 
-            # _try_xgb_prediction was called (it returns None for weight=0).
-            mock_xgb.assert_called_once()
+            # _try_multi_model_prediction was called (returns None for weight=0).
+            mock_ml.assert_called_once()
             assert "XGBoost" not in result.model_sources
 
     @pytest.mark.asyncio
-    async def test_xgb_failure_graceful_degradation(
-        self, sample_forecasts, sample_brackets
-    ) -> None:
-        """When _try_xgb_prediction raises, pipeline still completes."""
+    async def test_ml_failure_graceful_degradation(self, sample_forecasts, sample_brackets) -> None:
+        """When _try_multi_model_prediction returns None, pipeline still completes."""
         with (
             patch(
                 "backend.prediction.pipeline.calculate_error_std",
                 new_callable=AsyncMock,
             ) as mock_std,
             patch(
-                "backend.prediction.pipeline._try_xgb_prediction",
-                return_value=None,
+                "backend.prediction.pipeline._try_multi_model_prediction",
+                return_value=(None, []),
             ),
         ):
             mock_std.return_value = 2.0
@@ -228,25 +227,25 @@ class TestPipelineXGBoostIntegration:
             assert "XGBoost" not in result.model_sources
 
     @pytest.mark.asyncio
-    async def test_xgb_sources_list_includes_xgboost(
+    async def test_ml_sources_list_includes_all_models(
         self, sample_forecasts, sample_brackets
     ) -> None:
-        """Sources list has 'XGBoost' appended when model contributes."""
+        """Sources list has all contributing ML model names appended."""
         with (
             patch(
                 "backend.prediction.pipeline.calculate_error_std",
                 new_callable=AsyncMock,
             ) as mock_std,
             patch(
-                "backend.prediction.pipeline._try_xgb_prediction",
-                return_value=58.0,
+                "backend.prediction.pipeline._try_multi_model_prediction",
+                return_value=(58.0, ["XGBoost", "RandomForest"]),
             ),
             patch(
                 "backend.prediction.pipeline.get_settings",
             ) as mock_settings,
         ):
             mock_std.return_value = 2.0
-            mock_settings.return_value = MagicMock(xgb_ensemble_weight=0.30)
+            mock_settings.return_value = MagicMock(ml_ensemble_weight=0.30)
 
             result = await generate_prediction(
                 city="NYC",
@@ -256,6 +255,37 @@ class TestPipelineXGBoostIntegration:
                 db_session=AsyncMock(),
             )
 
-            # Original sources + "XGBoost"
-            assert result.model_sources[-1] == "XGBoost"
+            # Original sources + 2 ML model names
+            assert result.model_sources[-1] == "RandomForest"
+            assert result.model_sources[-2] == "XGBoost"
+            assert len(result.model_sources) == len(sample_forecasts) + 2
+
+    @pytest.mark.asyncio
+    async def test_single_ml_model_in_sources(self, sample_forecasts, sample_brackets) -> None:
+        """When only one ML model contributes, sources has just that model."""
+        with (
+            patch(
+                "backend.prediction.pipeline.calculate_error_std",
+                new_callable=AsyncMock,
+            ) as mock_std,
+            patch(
+                "backend.prediction.pipeline._try_multi_model_prediction",
+                return_value=(57.0, ["XGBoost"]),
+            ),
+            patch(
+                "backend.prediction.pipeline.get_settings",
+            ) as mock_settings,
+        ):
+            mock_std.return_value = 2.0
+            mock_settings.return_value = MagicMock(ml_ensemble_weight=0.30)
+
+            result = await generate_prediction(
+                city="NYC",
+                target_date=date(2026, 2, 18),
+                forecasts=sample_forecasts,
+                kalshi_brackets=sample_brackets,
+                db_session=AsyncMock(),
+            )
+
+            assert "XGBoost" in result.model_sources
             assert len(result.model_sources) == len(sample_forecasts) + 1

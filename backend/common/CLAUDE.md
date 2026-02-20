@@ -823,6 +823,10 @@ All Prometheus metric objects are module-level singletons. Import them wherever 
 | `WEATHER_FETCHES_TOTAL` | Counter | source, city, outcome | Weather data fetch results |
 | `XGB_PREDICTIONS_TOTAL` | Counter | city, status | XGBoost temperature predictions (success/error) |
 | `XGB_TRAINING_DURATION_SECONDS` | Histogram | — | XGBoost model training duration |
+| `ML_PREDICTIONS_TOTAL` | Counter | city, model, status | Multi-model ML predictions (per-model tracking) |
+| `ML_TRAINING_DURATION_SECONDS` | Histogram | — | Multi-model training duration |
+| `ML_ENSEMBLE_AGREEMENT_F` | Histogram | — | Spread (max-min) across ML model predictions |
+| `ML_MODELS_AVAILABLE` | Gauge | — | Number of ML models currently loaded |
 
 ### Usage
 

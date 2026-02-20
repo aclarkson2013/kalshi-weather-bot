@@ -49,18 +49,21 @@ tests/
 │   ├── test_orders.py      → Order build + pre-flight validation (8 tests)
 │   ├── test_exceptions.py  → Exception context, formatting, filtering (7 tests)
 │   └── test_rate_limiter.py → Token bucket init, counting, acquire (5 tests)
-├── prediction/          → Unit tests for backend/prediction/ (160 tests)
+├── prediction/          → Unit tests for backend/prediction/ (217 tests)
 │   ├── conftest.py      → Prediction fixtures (sample weather data, bracket configs)
+│   ├── test_ml_models.py     → RF + Ridge model managers: train, save, load, predict, NaN (24 tests)
+│   ├── test_model_ensemble.py → Multi-model ensemble: weights, predict, train, save/load (22 tests)
 │   ├── test_accuracy.py      → Per-source accuracy: MAE, RMSE, bias, error trends (23 tests)
 │   ├── test_features.py      → XGBoost feature engineering: extraction, NaN, encoding (23 tests)
 │   ├── test_xgb_model.py     → XGBoost model manager: train, save, load, predict (24 tests)
-│   ├── test_train_xgb.py     → Training Celery task: data conversion, task execution (10 tests)
+│   ├── test_train_models.py  → Multi-model training Celery task: execution, partial accept, errors (10 tests)
+│   ├── test_train_xgb.py     → XGBoost training Celery task: data conversion, task execution (10 tests)
 │   ├── test_ensemble.py      → Ensemble forecast + confidence assessment (19 tests)
 │   ├── test_calibration.py   → Brier score, calibration buckets, bracket matching (17 tests)
 │   ├── test_brackets.py      → Normal-CDF bracket probabilities (14 tests)
 │   ├── test_error_dist.py    → Season detection + error std calculation (12 tests)
 │   ├── test_postmortem.py    → Post-mortem narrative generation (8 tests)
-│   └── test_pipeline.py      → Full prediction pipeline orchestration + XGBoost integration (10 tests)
+│   └── test_pipeline.py      → Full prediction pipeline orchestration + multi-model integration (11 tests)
 ├── trading/             → Unit tests + safety tests for backend/trading/ (202 tests)
 │   ├── conftest.py      → Trading fixtures (mock Kalshi client, sample predictions)
 │   ├── test_ev_calculator.py      → EV math, fees, bracket scanning, Kelly integration (45 tests)
@@ -1129,7 +1132,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (1080 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (1191 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 110 tests) | Yes |
 | `docker-build` | Docker build smoke test for backend + frontend Dockerfiles | Yes |
 

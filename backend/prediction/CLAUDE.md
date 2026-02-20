@@ -11,28 +11,33 @@ This document is the complete specification. An agent should be able to build ev
 ```
 backend/prediction/
 ├── __init__.py
-├── pipeline.py       -> Prediction pipeline orchestrator (ensemble → XGBoost blend → error dist → brackets)
-├── ensemble.py       -> Weighted ensemble of multiple forecast sources + confidence assessment
-├── features.py       -> XGBoost feature engineering (21 features, pure module, no I/O)
-├── xgb_model.py      -> XGBoost model manager (load, predict, train, save, JSON serialization)
-├── train_xgb.py      -> XGBoost training Celery task (weekly retraining from historical data)
-├── brackets.py       -> Bracket probability calculator (scipy CDF)
-├── error_dist.py     -> Historical forecast error distribution analysis
-├── accuracy.py       -> Per-source forecast accuracy (MAE, RMSE, bias) + error trends
-├── calibration.py    -> Real calibration: Brier score + calibration buckets (replaces Phase 2 stub)
-├── postmortem.py     -> Generate trade post-mortem data after settlement
-└── exceptions.py     -> Prediction-specific exceptions
+├── pipeline.py         -> Prediction pipeline orchestrator (ensemble → multi-model ML blend → error dist → brackets)
+├── ensemble.py         -> Weighted ensemble of multiple forecast sources + confidence assessment
+├── features.py         -> ML feature engineering (21 features, pure module, no I/O)
+├── xgb_model.py        -> XGBoost model manager (load, predict, train, save, JSON serialization)
+├── ml_models.py        -> RF + Ridge model managers (joblib serialization, NaN imputation)
+├── model_ensemble.py   -> Multi-model orchestrator (XGBoost + RF + Ridge, inverse-RMSE weights)
+├── train_xgb.py        -> XGBoost training Celery task (kept for backward compat)
+├── train_models.py     -> Multi-model training Celery task (weekly retraining, all 3 models)
+├── brackets.py         -> Bracket probability calculator (scipy CDF)
+├── error_dist.py       -> Historical forecast error distribution analysis
+├── accuracy.py         -> Per-source forecast accuracy (MAE, RMSE, bias) + error trends
+├── calibration.py      -> Real calibration: Brier score + calibration buckets
+├── postmortem.py       -> Generate trade post-mortem data after settlement
+└── exceptions.py       -> Prediction-specific exceptions
 ```
 
-## XGBoost ML Model (Phase 23)
+## Multi-Model ML Ensemble (Phase 27, replaces Phase 23 single-model)
 
-XGBoost provides a learned temperature prediction that blends with the static ensemble:
+Three ML models provide learned temperature predictions that blend with the static ensemble:
 
 ### Architecture
-1. **Ensemble** (weighted average of NWS, ECMWF, GFS, ICON, GEM) → `ensemble_temp`
-2. **XGBoost** regression on 21 features → `xgb_temp`
-3. **Blend**: `final_temp = (1 - xgb_weight) * ensemble_temp + xgb_weight * xgb_temp` (default 70/30)
-4. Graceful fallback: if model missing or prediction fails → ensemble-only
+1. **Statistical Ensemble** (weighted average of NWS, ECMWF, GFS, ICON, GEM) → `ensemble_temp`
+2. **Multi-Model ML**: XGBoost + Random Forest + Ridge, all trained on same 21 features
+3. **Inverse-RMSE weighting**: `weight_i = (1/rmse_i) / sum(1/rmse_j)` — lower error = higher weight
+4. **Blend**: `final_temp = (1 - ml_weight) * ensemble_temp + ml_weight * ml_temp` (default 70/30)
+5. Graceful fallback: if no models available → ensemble-only; if one model fails → others still contribute
+6. Backward compat: if only XGBoost model on disk → loads XGBoost alone with weight=1.0
 
 ### Feature Vector (21 features)
 - Per-source highs (4): NWS, ECMWF, GFS, ICON
@@ -43,17 +48,27 @@ XGBoost provides a learned temperature prediction that blends with the static en
 - City one-hot (4): NYC, CHI, MIA, AUS
 - XGBoost handles NaN natively — missing sources become NaN
 
-### Training Pipeline (`train_xgb.py`)
-- Celery task, scheduled Sunday 3 AM ET via Celery Beat
-- SQL pivot query joins WeatherForecast + Settlement
+### Training Pipeline (`train_models.py`)
+- Celery task `train_all_models`, scheduled Sunday 3 AM ET via Celery Beat
+- Reuses `_fetch_training_data()` and `_rows_to_arrays()` from `train_xgb.py`
 - Chronological 80/20 split (NOT random — time series)
-- Model rejection: test RMSE > 5.0°F → don't save
-- JSON serialization (portable, not pickle)
+- Trains all 3 models, computes inverse-RMSE weights, saves accepted + `ml_weights.json`
+- Model rejection: test RMSE > 5.0°F → don't save that model (partial acceptance OK)
+- XGBoost: JSON serialization; RF/Ridge: joblib serialization
 - Min 60 training samples required
+- soft_time_limit=600 (10 min), time_limit=720 (12 min)
+
+### Model Managers
+- `xgb_model.py`: XGBoost — handles NaN natively, JSON save/load
+- `ml_models.py`: RF + Ridge — require NaN imputation via column medians, joblib save/load
+  - NaN fill values stored in metadata JSON, persist through save/load cycles
+  - RF params: n_estimators=200, max_depth=8, min_samples_split=5, min_samples_leaf=3, random_state=42, n_jobs=1
+  - Ridge params: alpha=1.0
 
 ### Configuration (`config.py`)
 - `xgb_model_dir`: model file directory (default: "models")
-- `xgb_ensemble_weight`: blend weight (default: 0.30)
+- `ml_ensemble_weight`: multi-model blend weight (default: 0.30)
+- `xgb_ensemble_weight`: deprecated alias (kept for backward compat)
 - `xgb_min_training_samples`: minimum pairs to train (default: 60)
 - `xgb_retrain_interval_days`: retrain frequency (default: 14)
 
