@@ -13,7 +13,7 @@ import Skeleton from "@/components/ui/skeleton";
 import TradeCard from "@/components/trade-card/trade-card";
 import { useDashboard } from "@/lib/hooks";
 import type { DashboardData } from "@/lib/types";
-import { centsToDollars, formatPnL, CITY_NAMES } from "@/lib/utils";
+import { centsToDollars, formatDateTime, formatPnL, CITY_NAMES } from "@/lib/utils";
 
 function StatCard({
   label,
@@ -64,7 +64,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
         />
         <StatCard
           label="Next Launch"
-          value={data.next_market_launch || "—"}
+          value={data.next_market_launch ? formatDateTime(data.next_market_launch) : "—"}
           icon={Clock}
         />
       </div>
