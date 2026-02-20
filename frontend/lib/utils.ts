@@ -44,9 +44,21 @@ export function formatProbability(prob: number): string {
 /**
  * Format an ISO date string or Date object for display.
  * Returns "Mon, Feb 18" style format.
+ *
+ * IMPORTANT: Date-only strings like "2026-02-20" are parsed by JS as UTC midnight.
+ * In US timezones this shifts backward to the previous day. We append T12:00:00
+ * to force midday parsing so the displayed date matches the intended date.
  */
 export function formatDate(dateStr: string | Date): string {
-  const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+  let d: Date;
+  if (typeof dateStr === "string") {
+    // Date-only string (YYYY-MM-DD) → add noon to avoid timezone day shift
+    d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? new Date(dateStr + "T12:00:00")
+      : new Date(dateStr);
+  } else {
+    d = dateStr;
+  }
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",

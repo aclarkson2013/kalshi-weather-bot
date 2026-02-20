@@ -6,6 +6,7 @@ import type { PendingTrade } from "@/lib/types";
 import {
   centsToDollars,
   confidenceBadgeColor,
+  formatDate,
   formatProbability,
   timeRemaining,
 } from "@/lib/utils";
@@ -54,11 +55,17 @@ export default function PendingTradeCard({
         </span>
       </div>
 
+      {/* Date + side subtitle */}
+      <p className="text-xs text-boz-neutral mb-2">
+        {formatDate(trade.created_at)} &middot;{" "}
+        {trade.side.toUpperCase()} @ ${centsToDollars(trade.price_cents)}
+      </p>
+
       {/* Trade details */}
       <div className="grid grid-cols-2 gap-2 text-xs mb-3">
         <div>
-          <span className="text-boz-neutral">Side:</span>{" "}
-          {trade.side.toUpperCase()} @ ${centsToDollars(trade.price_cents)}
+          <span className="text-boz-neutral">Model:</span>{" "}
+          {formatProbability(trade.model_probability)}
         </div>
         <div>
           <span className="text-boz-neutral">EV:</span>{" "}
@@ -70,10 +77,6 @@ export default function PendingTradeCard({
             {isPositiveEv ? "+" : ""}
             {evPercent}%
           </span>
-        </div>
-        <div>
-          <span className="text-boz-neutral">Model:</span>{" "}
-          {formatProbability(trade.model_probability)}
         </div>
         <div>
           <span className="text-boz-neutral">Market:</span>{" "}
