@@ -308,7 +308,8 @@ class TestOrderResponse:
             action="buy",
             side="yes",
             type="limit",
-            count=1,
+            fill_count=1,
+            initial_count=1,
             yes_price=22,
             status="resting",
             created_time=datetime(2026, 2, 17, 10, 5, 0),
@@ -317,6 +318,7 @@ class TestOrderResponse:
         assert response.ticker == "KXHIGHNY-26FEB18-T52"
         assert response.status == "resting"
         assert response.yes_price == 22
+        assert response.count == 1  # backward-compat property
 
 
 # ─── Position & Settlement Models ───

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ─── Helper Functions ───
 
@@ -216,27 +216,43 @@ class OrderRequest(BaseModel):
 class OrderResponse(BaseModel):
     """Response from a successful order placement on Kalshi.
 
+    The Kalshi v2 API returns many fields; we capture the ones we need
+    and allow extras so the model doesn't break on new API fields.
+
     Attributes:
         order_id: Unique identifier assigned by Kalshi.
         ticker: Market ticker the order was placed on.
         action: "buy" or "sell".
         side: "yes" or "no".
         type: "limit" or "market".
-        count: Number of contracts.
+        fill_count: Number of contracts filled (Kalshi v2 field).
+        initial_count: Number of contracts requested (Kalshi v2 field).
         yes_price: Price in cents.
         status: Order status (e.g., "resting", "executed", "canceled").
         created_time: When the order was created.
+        taker_fees: Taker fees in cents.
+        taker_fill_cost: Total fill cost in cents.
     """
+
+    model_config = ConfigDict(extra="allow")
 
     order_id: str
     ticker: str
     action: str
     side: str
     type: str
-    count: int
-    yes_price: int
+    fill_count: int = 0
+    initial_count: int = 0
+    yes_price: int = 0
     status: str
     created_time: datetime
+    taker_fees: int = 0
+    taker_fill_cost: int = 0
+
+    @property
+    def count(self) -> int:
+        """Backward-compatible count property (returns fill_count)."""
+        return self.fill_count
 
 
 # ─── Position & Settlement Models ───

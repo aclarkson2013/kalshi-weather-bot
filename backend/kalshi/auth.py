@@ -1,8 +1,15 @@
-"""RSA request signing for Kalshi API authentication.
+"""Request signing for Kalshi API authentication.
 
-Kalshi requires each API request to be signed with an RSA private key
-using PKCS1v15 + SHA-256. This module handles key loading and header
-generation for authenticated requests.
+Kalshi API uses RSA key pairs with RSA-PSS signing (SHA-256).
+This module also supports EC (Elliptic Curve) keys as a fallback,
+though Kalshi's official documentation only references RSA keys.
+
+Signing algorithm (per Kalshi docs + official SDK):
+- RSA keys: RSA-PSS with MGF1(SHA-256), salt_length=DIGEST_LENGTH
+- EC keys: ECDSA with SHA-256 (unofficial, may not be supported)
+
+IMPORTANT: Query parameters MUST be stripped from the path before signing.
+The signing path is everything before the '?' character.
 
 SECURITY:
 - Private keys are NEVER logged, printed, or included in error messages.
@@ -28,7 +35,9 @@ import base64
 import time
 
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import ec, padding
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from backend.common.logging import get_logger
 from backend.kalshi.exceptions import KalshiAuthError
@@ -37,15 +46,18 @@ logger = get_logger("AUTH")
 
 
 class KalshiAuth:
-    """RSA-based request signer for the Kalshi API.
+    """Request signer for the Kalshi API (supports RSA and EC keys).
 
-    Loads a PEM-encoded RSA private key and signs API requests using
-    PKCS1v15 + SHA-256. The signing string format is:
-        str(timestamp_ms) + HTTP_METHOD + path
+    Loads a PEM-encoded private key (RSA or EC) and signs API requests.
+    - RSA keys: signed with RSA-PSS + MGF1(SHA-256) (per Kalshi official SDK)
+    - EC keys: signed with ECDSA + SHA-256 (unofficial fallback)
+
+    The signing string format is:
+        str(timestamp_ms) + HTTP_METHOD + path_without_query_params
 
     Args:
         api_key_id: Kalshi API key identifier.
-        private_key_pem: RSA private key in PEM format (decrypted plaintext).
+        private_key_pem: Private key in PEM format (decrypted plaintext).
     """
 
     def __init__(self, api_key_id: str, private_key_pem: str) -> None:
@@ -56,12 +68,33 @@ class KalshiAuth:
                 password=None,
             )
         except (ValueError, TypeError) as exc:
-            logger.error("Failed to load RSA private key")
+            logger.error("Failed to load private key")
             raise KalshiAuthError(
-                "Invalid RSA private key format",
+                "Invalid private key format",
                 context={"error_type": type(exc).__name__},
             ) from exc
-        logger.info("Auth initialized", extra={"data": {"key_id_prefix": api_key_id[:8] + "..."}})
+
+        # Detect key type for signing
+        if isinstance(self.private_key, RSAPrivateKey):
+            self._key_type = "RSA"
+        elif isinstance(self.private_key, EllipticCurvePrivateKey):
+            self._key_type = "EC"
+            logger.warning(
+                "EC key detected — Kalshi docs only reference RSA keys. "
+                "EC signing may not be supported by the Kalshi API. "
+                "If authentication fails, regenerate an RSA key pair at kalshi.com.",
+                extra={"data": {"key_id_prefix": api_key_id[:8] + "..."}},
+            )
+        else:
+            raise KalshiAuthError(
+                "Unsupported key type (expected RSA or EC)",
+                context={"key_type": type(self.private_key).__name__},
+            )
+
+        logger.info(
+            "Auth initialized",
+            extra={"data": {"key_id_prefix": api_key_id[:8] + "...", "key_type": self._key_type}},
+        )
 
     def sign_request(
         self,
@@ -72,17 +105,21 @@ class KalshiAuth:
         """Generate authentication headers for a Kalshi API request.
 
         The signing string is: str(timestamp_ms) + method.upper() + path
-        Signed with PKCS1v15 + SHA-256 and base64-encoded.
+        Signed with the appropriate algorithm for the key type and base64-encoded.
 
         CRITICAL: The path must include the /trade-api/v2 prefix
         (e.g., "/trade-api/v2/markets", NOT "/markets").
 
         CRITICAL: Timestamps are in MILLISECONDS (int(time.time() * 1000)).
 
+        CRITICAL: Query parameters are stripped before signing
+        (e.g., "/trade-api/v2/events?limit=5" signs as "/trade-api/v2/events").
+
         Args:
             method: HTTP method (GET, POST, DELETE).
             path: Full request path starting with /trade-api/
                   (e.g., "/trade-api/v2/markets" or "/trade-api/ws/v2").
+                  Query parameters are automatically stripped before signing.
             timestamp_ms: Unix timestamp in milliseconds. Auto-generated if None.
 
         Returns:
@@ -95,14 +132,28 @@ class KalshiAuth:
         ts = timestamp_ms or int(time.time() * 1000)
         ts_str = str(ts)
 
-        # Signing string: timestamp + METHOD + path
-        message = ts_str + method.upper() + path
+        # Strip query parameters from path before signing (per Kalshi docs)
+        signing_path = path.split("?")[0]
 
-        signature = self.private_key.sign(
-            message.encode(),
-            padding.PKCS1v15(),
-            hashes.SHA256(),
-        )
+        # Signing string: timestamp + METHOD + path (no query params)
+        message = ts_str + method.upper() + signing_path
+
+        if self._key_type == "RSA":
+            # RSA-PSS signing (per Kalshi official SDK)
+            signature = self.private_key.sign(
+                message.encode(),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.DIGEST_LENGTH,
+                ),
+                hashes.SHA256(),
+            )
+        else:
+            # EC (ECDSA) — unofficial fallback
+            signature = self.private_key.sign(
+                message.encode(),
+                ec.ECDSA(hashes.SHA256()),
+            )
 
         sig_b64 = base64.b64encode(signature).decode()
 

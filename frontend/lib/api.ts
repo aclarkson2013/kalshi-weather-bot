@@ -58,12 +58,22 @@ async function apiFetch<T>(
     ...options,
   });
 
-  // 401 → redirect to onboarding
+  // 401 → redirect to onboarding (unless already there)
   if (res.status === 401) {
-    if (typeof window !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/onboarding")
+    ) {
       window.location.href = "/onboarding";
     }
-    throw new ApiError("Not authenticated", 401);
+    let detail = "Not authenticated";
+    try {
+      const body = await res.json();
+      detail = body.detail || body.message || detail;
+    } catch {
+      // Use default message
+    }
+    throw new ApiError(detail, 401);
   }
 
   // 204 No Content → return undefined

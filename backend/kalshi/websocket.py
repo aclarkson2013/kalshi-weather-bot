@@ -55,7 +55,7 @@ class KalshiWebSocket:
     """
 
     WS_URL = "wss://api.elections.kalshi.com/trade-api/ws/v2"
-    DEMO_WS_URL = "wss://demo-api.kalshi.com/trade-api/ws/v2"
+    DEMO_WS_URL = "wss://demo-api.kalshi.co/trade-api/ws/v2"
     WS_AUTH_PATH = "/trade-api/ws/v2"
     HEARTBEAT_INTERVAL = 10  # seconds
     MAX_RECONNECT_RETRIES = 5

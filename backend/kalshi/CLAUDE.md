@@ -25,15 +25,16 @@ backend/kalshi/
 
 ## Kalshi API Details
 
-### Authentication (RSA Signing)
+### Authentication (RSA-PSS Signing)
 
 - User provides: **API Key ID** (string) + **RSA Private Key** (PEM format)
 - Each API request must be signed with the private key
 - Signature process:
-  1. Build signing string: `timestamp_ms + HTTP_METHOD + path`
-  2. Sign with **PKCS1v15 + SHA-256** (NOT RSA-PSS)
+  1. Build signing string: `timestamp_ms + HTTP_METHOD + path` (strip query params from path!)
+  2. Sign with **RSA-PSS + MGF1(SHA-256), salt_length=DIGEST_LENGTH** (per Kalshi official SDK)
   3. Base64-encode the signature
   4. Include in headers: `KALSHI-ACCESS-KEY`, `KALSHI-ACCESS-SIGNATURE`, `KALSHI-ACCESS-TIMESTAMP`
+- **EC key fallback:** The auth module also supports EC keys (ECDSA + SHA-256) but Kalshi docs only reference RSA. EC support is kept as a defensive fallback.
 - **CRITICAL SECURITY:** Private keys are stored AES-256 encrypted. Your auth module receives the decrypted key in-memory only. NEVER log, print, or include keys in error messages.
 
 #### Reference Implementation: `backend/kalshi/auth.py`
@@ -76,7 +77,10 @@ class KalshiAuth:
 
         signature = self.private_key.sign(
             message.encode(),
-            padding.PKCS1v15(),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.DIGEST_LENGTH,
+            ),
             hashes.SHA256()
         )
 
@@ -91,7 +95,8 @@ class KalshiAuth:
 ```
 
 **Key details:**
-- The signing algorithm is **PKCS1v15**, not PSS. This matters.
+- The signing algorithm is **RSA-PSS** with MGF1(SHA-256) and salt_length=DIGEST_LENGTH. This matches the Kalshi official SDK.
+- Query parameters MUST be stripped from the path before signing (e.g., `/trade-api/v2/events?limit=5` → sign as `/trade-api/v2/events`).
 - The `path` passed to `sign_request` must be the full path starting from `/trade-api/...`, not just the endpoint suffix.
 - Timestamps are in **milliseconds** (multiply `time.time()` by 1000).
 
@@ -125,7 +130,7 @@ If you send `"yes_price": 0.22` instead of `"yes_price": 22`, the API will rejec
 ### REST API
 
 - **Base URL (production):** `https://api.elections.kalshi.com/trade-api/v2`
-- **Base URL (demo):** `https://demo-api.kalshi.com/trade-api/v2`
+- **Base URL (demo):** `https://demo-api.kalshi.co/trade-api/v2`
 - **Key endpoints:**
   - `GET /events` — List events (filter with `?series_ticker=KXHIGHNY`)
   - `GET /events/{event_ticker}` — Get event details + child markets
@@ -448,7 +453,7 @@ class KalshiWebSocket:
     """
 
     WS_URL = "wss://api.elections.kalshi.com/trade-api/ws/v2"
-    DEMO_WS_URL = "wss://demo-api.kalshi.com/trade-api/ws/v2"
+    DEMO_WS_URL = "wss://demo-api.kalshi.co/trade-api/ws/v2"
 
     def __init__(self, auth: KalshiAuth, url: str | None = None):
         self.auth = auth
@@ -602,7 +607,7 @@ class KalshiClient:
             demo: If True, use the demo API endpoint.
         """
         if demo:
-            self.BASE_URL = "https://demo-api.kalshi.com/trade-api/v2"
+            self.BASE_URL = "https://demo-api.kalshi.co/trade-api/v2"
         self.auth = KalshiAuth(api_key_id, private_key_pem)
         self.rate_limiter = TokenBucketRateLimiter(rate=10.0)
         self.client = httpx.AsyncClient(timeout=30.0)
@@ -1189,7 +1194,7 @@ def mock_edge_bracket_top():
 Add these to `requirements.txt`:
 
 ```
-cryptography>=41.0.0    # RSA signing (PKCS1v15 + SHA256)
+cryptography>=41.0.0    # RSA-PSS signing (SHA256)
 httpx>=0.25.0           # Async HTTP client
 websockets>=12.0        # WebSocket client
 pydantic>=2.0           # Data validation and models
@@ -1201,7 +1206,7 @@ pydantic>=2.0           # Data validation and models
 
 1. **Prices in cents, not dollars.** The single most common bug. `yes_price: 22` means $0.22. If you see a float going to the API, something is wrong.
 2. **Signing path must include `/trade-api/v2`.** Sign `/trade-api/v2/markets`, not `/markets`.
-3. **Signing uses PKCS1v15, not PSS.** Using PSS will produce invalid signatures.
+3. **Signing uses RSA-PSS, not PKCS1v15.** Per official Kalshi SDK. PSS is non-deterministic (random salt).
 4. **Timestamps are milliseconds.** `int(time.time() * 1000)`, not `int(time.time())`.
 5. **Edge brackets have null strikes.** Bottom bracket: `floor_strike=null`. Top bracket: `cap_strike=null`. Your parsing must handle both.
 6. **Markets may not exist yet.** Before 10 AM ET the day before, weather markets for the next day might not be listed. Handle gracefully.
@@ -1299,7 +1304,7 @@ The trading scheduler (`backend/trading/scheduler.py`) was modified to try Redis
 
 `KalshiWebSocket` now accepts an optional `url` parameter:
 ```python
-DEMO_WS_URL = "wss://demo-api.kalshi.com/trade-api/ws/v2"
+DEMO_WS_URL = "wss://demo-api.kalshi.co/trade-api/ws/v2"
 
 def __init__(self, auth: KalshiAuth, url: str | None = None) -> None:
     self._url = url or self.WS_URL

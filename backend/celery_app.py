@@ -35,6 +35,16 @@ celery_app.conf.update(
     # Global task timeouts — override per-task where needed
     task_soft_time_limit=300,  # 5 min: raises SoftTimeLimitExceeded
     task_time_limit=360,  # 6 min: hard kill (SIGKILL)
+    # Explicit task module imports — worker must know about all task modules.
+    # Our tasks live in scheduler.py / train_models.py (not tasks.py),
+    # so autodiscover_tasks() won't find them. List them explicitly.
+    include=[
+        "backend.weather.scheduler",
+        "backend.trading.scheduler",
+        "backend.prediction.scheduler",
+        "backend.prediction.train_xgb",
+        "backend.prediction.train_models",
+    ],
 )
 
 # ─── Beat Schedule ───
@@ -51,6 +61,11 @@ celery_app.conf.beat_schedule = {
     "fetch-cli-report-morning": {
         "task": "backend.weather.scheduler.fetch_cli_reports",
         "schedule": crontab(hour=8, minute=0),
+    },
+    # Agent 3: Prediction — generate predictions every 30 min (offset 5 min after weather)
+    "generate-predictions": {
+        "task": "backend.prediction.scheduler.generate_predictions",
+        "schedule": crontab(minute="5,35"),
     },
     # Agent 4: Trading — main trading cycle every 15 minutes
     "trading-cycle": {

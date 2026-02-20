@@ -51,7 +51,7 @@ logger = get_logger("MARKET")
 # ─── Base URLs ───
 
 PROD_BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
-DEMO_BASE_URL = "https://demo-api.kalshi.com/trade-api/v2"
+DEMO_BASE_URL = "https://demo-api.kalshi.co/trade-api/v2"
 
 
 class KalshiClient:
@@ -230,22 +230,21 @@ class KalshiClient:
     ) -> list[KalshiMarket]:
         """Get all bracket markets for a specific event.
 
-        Fetches the event to get market tickers, then fetches full
-        market details for each bracket.
+        Uses the /markets endpoint filtered by event_ticker to fetch all
+        bracket markets in a single request.
 
         Args:
-            event_ticker: Event ticker (e.g., "KXHIGHNY-26FEB18").
+            event_ticker: Event ticker (e.g., "KXHIGHNY-26FEB21").
 
         Returns:
             List of KalshiMarket models (one per bracket, typically 6).
         """
-        data = await self._request("GET", f"/events/{event_ticker}")
-        market_tickers = data.get("event", {}).get("markets", [])
+        data = await self._request(
+            "GET", f"/markets?event_ticker={event_ticker}&limit=100"
+        )
+        raw_markets = data.get("markets", [])
 
-        markets = []
-        for ticker in market_tickers:
-            market_data = await self._request("GET", f"/markets/{ticker}")
-            markets.append(KalshiMarket(**market_data["market"]))
+        markets = [KalshiMarket(**m) for m in raw_markets]
 
         logger.info(
             "Event markets fetched",
@@ -309,7 +308,7 @@ class KalshiClient:
             json_data=order.to_api_dict(),
         )
 
-        response = OrderResponse(**data["order"])
+        response = OrderResponse(**data.get("order", {}))
 
         logger.info(
             "Order placed",

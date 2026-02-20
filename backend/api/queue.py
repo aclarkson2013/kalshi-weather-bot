@@ -16,6 +16,7 @@ from backend.api.deps import (
     pending_to_schema,
 )
 from backend.common.database import get_db
+from backend.common.exceptions import InvalidOrderError
 from backend.common.logging import get_logger
 from backend.common.models import PendingTradeModel, PendingTradeStatus, User
 from backend.common.schemas import PendingTrade, TradeRecord, TradeSignal
@@ -106,12 +107,19 @@ async def approve_pending_trade(
     )
 
     # Execute the trade on Kalshi
-    trade_record = await execute_trade(
-        signal=signal,
-        kalshi_client=kalshi,
-        db=db,
-        user_id=user.id,
-    )
+    try:
+        trade_record = await execute_trade(
+            signal=signal,
+            kalshi_client=kalshi,
+            db=db,
+            user_id=user.id,
+        )
+    except InvalidOrderError as exc:
+        # Order was rejected or not filled — revert to PENDING so user can retry
+        pending_model.status = PendingTradeStatus.PENDING
+        pending_model.acted_at = None
+        await db.commit()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # Mark the pending trade as EXECUTED
     pending_model.status = PendingTradeStatus.EXECUTED

@@ -191,7 +191,7 @@ def make_pending_trade(
         confidence="medium",
         reasoning="Model sees 30% vs market 22%",
         status=status,
-        expires_at=datetime.now(UTC) + timedelta(hours=2),
+        expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=2),
     )
 
 

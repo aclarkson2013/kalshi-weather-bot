@@ -136,7 +136,7 @@ async def settle_trade(
     trade.pnl_cents = pnl_cents
     trade.settlement_temp_f = actual_temp
     trade.settlement_source = settlement.source
-    trade.settled_at = datetime.now(UTC)
+    trade.settled_at = datetime.now(UTC).replace(tzinfo=None)
 
     # Fetch forecasts for the post-mortem narrative
     forecasts_result = await db.execute(

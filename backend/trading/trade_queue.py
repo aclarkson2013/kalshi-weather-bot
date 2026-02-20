@@ -59,7 +59,7 @@ async def queue_trade(
     Returns:
         A PendingTrade schema object representing the queued trade.
     """
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
     trade_id = str(uuid4())
     expires_at = now + timedelta(minutes=PENDING_TRADE_TTL_MINUTES)
 
@@ -170,7 +170,7 @@ async def approve_trade(
         raise ValueError(msg)
 
     # Check expiration
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
     if now > trade.expires_at:
         trade.status = PendingTradeStatus.EXPIRED
         trade.acted_at = now
@@ -219,7 +219,7 @@ async def reject_trade(
         raise ValueError(msg)
 
     trade.status = PendingTradeStatus.REJECTED
-    trade.acted_at = datetime.now(UTC)
+    trade.acted_at = datetime.now(UTC).replace(tzinfo=None)
     await db.flush()
 
     logger.info(
@@ -241,7 +241,7 @@ async def expire_stale_trades(db: AsyncSession) -> int:
     Returns:
         Number of trades expired.
     """
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     result = await db.execute(
         update(PendingTradeModel)

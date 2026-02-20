@@ -99,9 +99,9 @@ class TestApproveTrade:
         mock_trade = MagicMock(spec=PendingTradeModel)
         mock_trade.status = status
         if expired:
-            mock_trade.expires_at = datetime.now(UTC) - timedelta(minutes=5)
+            mock_trade.expires_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=5)
         else:
-            mock_trade.expires_at = datetime.now(UTC) + timedelta(minutes=30)
+            mock_trade.expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30)
         mock_trade.acted_at = None
 
         mock_db = AsyncMock()

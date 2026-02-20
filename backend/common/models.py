@@ -26,6 +26,27 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy.types import TypeDecorator
+
+
+class TZNaiveDateTime(TypeDecorator):
+    """DateTime that strips timezone info before INSERT/UPDATE.
+
+    PostgreSQL TIMESTAMP WITHOUT TIME ZONE + asyncpg rejects timezone-aware
+    Python datetimes. This TypeDecorator transparently strips tzinfo so all
+    existing code using datetime.now(UTC) works without modification.
+
+    On read, datetimes come back as naive (no tzinfo), which matches the
+    column type.
+    """
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):  # noqa: ANN001, ANN201
+        if value is not None and hasattr(value, "tzinfo") and value.tzinfo is not None:
+            return value.replace(tzinfo=None)
+        return value
 
 
 class Base(DeclarativeBase):
@@ -69,8 +90,12 @@ class PendingTradeStatus(enum.StrEnum):
 
 
 def _utcnow() -> datetime:
-    """Return timezone-aware UTC now."""
-    return datetime.now(UTC)
+    """Return timezone-naive UTC now (for TIMESTAMP WITHOUT TIME ZONE columns).
+
+    PostgreSQL TIMESTAMP WITHOUT TIME ZONE + asyncpg rejects timezone-aware
+    datetimes. We strip tzinfo so the value is compatible with the column type.
+    """
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 # ─── Models ───
@@ -102,8 +127,8 @@ class User(Base):
     max_bankroll_pct_per_trade = Column(Float, default=0.05)  # 5%
     max_contracts_per_trade = Column(Integer, default=10)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at = Column(TZNaiveDateTime, default=_utcnow)
+    updated_at = Column(TZNaiveDateTime, default=_utcnow, onupdate=_utcnow)
 
     # Relationships
     trades = relationship("Trade", back_populates="user", lazy="select")
@@ -118,7 +143,7 @@ class WeatherForecast(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=True)
     city = Column(Enum(CityEnum, native_enum=False), nullable=False)
-    forecast_date = Column(DateTime, nullable=False)
+    forecast_date = Column(TZNaiveDateTime, nullable=False)
     source = Column(String, nullable=False)  # "NWS", "Open-Meteo:GFS", etc.
     forecast_high_f = Column(Float, nullable=False)
     forecast_low_f = Column(Float, nullable=True)
@@ -126,7 +151,7 @@ class WeatherForecast(Base):
     wind_speed_mph = Column(Float, nullable=True)
     cloud_cover_pct = Column(Float, nullable=True)
     raw_data = Column(JSON, nullable=True)
-    fetched_at = Column(DateTime, default=_utcnow)
+    fetched_at = Column(TZNaiveDateTime, default=_utcnow)
 
     # Relationships
     user = relationship("User", back_populates="forecasts")
@@ -144,13 +169,13 @@ class Prediction(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     city = Column(Enum(CityEnum, native_enum=False), nullable=False)
-    prediction_date = Column(DateTime, nullable=False)
+    prediction_date = Column(TZNaiveDateTime, nullable=False)
     ensemble_mean_f = Column(Float, nullable=False)
     ensemble_std_f = Column(Float, nullable=False)
     confidence = Column(String, nullable=False)  # "high", "medium", "low"
     model_sources = Column(String, nullable=False)  # Comma-separated
     brackets_json = Column(JSON, nullable=False)  # Serialized BracketProbability list
-    generated_at = Column(DateTime, default=_utcnow)
+    generated_at = Column(TZNaiveDateTime, default=_utcnow)
 
     __table_args__ = (Index("ix_prediction_city_date", "city", "prediction_date"),)
 
@@ -164,7 +189,7 @@ class Trade(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     kalshi_order_id = Column(String, nullable=True)
     city = Column(Enum(CityEnum, native_enum=False), nullable=False)
-    trade_date = Column(DateTime, nullable=False)
+    trade_date = Column(TZNaiveDateTime, nullable=False)
     market_ticker = Column(String, nullable=False)
     bracket_label = Column(String, nullable=False)
     side = Column(String, nullable=False)  # "yes" or "no"
@@ -180,8 +205,8 @@ class Trade(Base):
     pnl_cents = Column(Integer, nullable=True)
     fees_cents = Column(Integer, nullable=True)
     postmortem_narrative = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=_utcnow)
-    settled_at = Column(DateTime, nullable=True)
+    created_at = Column(TZNaiveDateTime, default=_utcnow)
+    settled_at = Column(TZNaiveDateTime, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="trades")
@@ -212,9 +237,9 @@ class PendingTradeModel(Base):
     confidence = Column(String, nullable=False)
     reasoning = Column(Text, nullable=True)
     status = Column(Enum(PendingTradeStatus, native_enum=False), default=PendingTradeStatus.PENDING)
-    created_at = Column(DateTime, default=_utcnow)
-    expires_at = Column(DateTime, nullable=False)
-    acted_at = Column(DateTime, nullable=True)
+    created_at = Column(TZNaiveDateTime, default=_utcnow)
+    expires_at = Column(TZNaiveDateTime, nullable=False)
+    acted_at = Column(TZNaiveDateTime, nullable=True)
 
 
 class Settlement(Base):
@@ -224,12 +249,12 @@ class Settlement(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     city = Column(Enum(CityEnum, native_enum=False), nullable=False)
-    settlement_date = Column(DateTime, nullable=False)
+    settlement_date = Column(TZNaiveDateTime, nullable=False)
     actual_high_f = Column(Float, nullable=False)
     actual_low_f = Column(Float, nullable=True)
     source = Column(String, default="NWS_CLI")
     raw_data = Column(JSON, nullable=True)
-    fetched_at = Column(DateTime, default=_utcnow)
+    fetched_at = Column(TZNaiveDateTime, default=_utcnow)
 
     __table_args__ = (Index("ix_settlement_city_date", "city", "settlement_date"),)
 
@@ -245,11 +270,11 @@ class DailyRiskState(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    trading_day = Column(DateTime, nullable=False)
+    trading_day = Column(TZNaiveDateTime, nullable=False)
     total_loss_cents = Column(Integer, default=0)
     total_exposure_cents = Column(Integer, default=0)
     consecutive_losses = Column(Integer, default=0)
-    cooldown_until = Column(DateTime, nullable=True)
+    cooldown_until = Column(TZNaiveDateTime, nullable=True)
     trades_count = Column(Integer, default=0)
 
     __table_args__ = (Index("ix_risk_user_day", "user_id", "trading_day", unique=True),)
@@ -261,7 +286,7 @@ class LogEntry(Base):
     __tablename__ = "log_entries"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, default=_utcnow, index=True)
+    timestamp = Column(TZNaiveDateTime, default=_utcnow, index=True)
     level = Column(String, nullable=False)
     module_tag = Column(String, nullable=False, index=True)
     message = Column(Text, nullable=False)

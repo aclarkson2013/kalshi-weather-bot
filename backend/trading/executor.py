@@ -125,22 +125,45 @@ async def execute_trade(
             },
         )
 
-    # Log partial fills
-    if order_status == "resting":
-        logger.info(
-            "Order resting (not yet filled)",
+    # Handle unfilled orders — resting means limit order is on the book
+    # but nobody has taken the other side yet. Don't record as a trade.
+    if order_status == "resting" and filled_count == 0:
+        logger.warning(
+            "Order resting with 0 fills — not recording as trade",
             extra={
                 "data": {
                     "order_id": order_id,
                     "ticker": signal.market_ticker,
-                    "count": filled_count,
+                    "status": order_status,
+                }
+            },
+        )
+        raise InvalidOrderError(
+            "Order not filled — resting on exchange with 0 contracts matched",
+            context={
+                "order_id": order_id,
+                "ticker": signal.market_ticker,
+                "status": order_status,
+            },
+        )
+
+    # Log partial fills (some filled, some still resting)
+    if order_status == "resting" and filled_count > 0:
+        logger.info(
+            "Order partially filled, remainder resting",
+            extra={
+                "data": {
+                    "order_id": order_id,
+                    "ticker": signal.market_ticker,
+                    "filled": filled_count,
+                    "requested": signal.quantity,
                 }
             },
         )
 
     # Record the trade in the database
     trade_id = str(uuid4())
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     trade = Trade(
         id=trade_id,
