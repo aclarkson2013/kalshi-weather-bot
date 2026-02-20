@@ -193,7 +193,7 @@ async def _run_trading_cycle() -> None:
     )
     from backend.trading.executor import execute_trade
     from backend.trading.risk_manager import RiskManager, get_trading_day
-    from backend.trading.trade_queue import queue_trade
+    from backend.trading.trade_queue import has_pending_duplicate, queue_trade
 
     # Step 2: Market hours check (before DB work)
     if not _are_markets_open():
@@ -364,6 +364,28 @@ async def _run_trading_cycle() -> None:
                         },
                     )
                 else:
+                    # Skip if there's already a PENDING trade for this bracket
+                    is_dup = await has_pending_duplicate(
+                        session,
+                        user_id,
+                        signal.city,
+                        signal.bracket,
+                        signal.side,
+                        signal.market_ticker,
+                    )
+                    if is_dup:
+                        logger.debug(
+                            "Skipping duplicate pending trade",
+                            extra={
+                                "data": {
+                                    "city": signal.city,
+                                    "bracket": signal.bracket,
+                                    "side": signal.side,
+                                }
+                            },
+                        )
+                        continue
+
                     notification_svc = await _get_notification_service(session, user_id)
                     await queue_trade(
                         signal,

@@ -229,6 +229,46 @@ async def reject_trade(
     return trade
 
 
+async def has_pending_duplicate(
+    db: AsyncSession,
+    user_id: str,
+    city: str,
+    bracket_label: str,
+    side: str,
+    market_ticker: str,
+) -> bool:
+    """Check if an active pending trade already exists for this bracket.
+
+    Prevents the scheduler from queuing duplicate signals for the same
+    city + bracket + side + ticker combination. Only considers trades that
+    are still PENDING (not expired, approved, or rejected).
+
+    Args:
+        db: Async database session.
+        user_id: The user ID.
+        city: City code (e.g., "NYC").
+        bracket_label: Bracket label (e.g., "45-46").
+        side: Trade side ("yes" or "no").
+        market_ticker: Kalshi market ticker.
+
+    Returns:
+        True if a duplicate PENDING trade exists, False otherwise.
+    """
+    result = await db.execute(
+        select(PendingTradeModel.id)
+        .where(
+            PendingTradeModel.user_id == user_id,
+            PendingTradeModel.city == city,
+            PendingTradeModel.bracket_label == bracket_label,
+            PendingTradeModel.side == side,
+            PendingTradeModel.market_ticker == market_ticker,
+            PendingTradeModel.status == PendingTradeStatus.PENDING,
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def expire_stale_trades(db: AsyncSession) -> int:
     """Expire all pending trades past their TTL.
 

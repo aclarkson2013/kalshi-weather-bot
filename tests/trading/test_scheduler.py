@@ -542,6 +542,7 @@ class TestRunTradingCycle:
             ),
             patch("backend.trading.ev_calculator.scan_all_brackets", return_value=[signal]),
             patch("backend.trading.trade_queue.queue_trade", mock_queue),
+            patch("backend.trading.trade_queue.has_pending_duplicate", return_value=False),
             patch("backend.trading.scheduler._get_notification_service", return_value=None),
         ):
             await _run_trading_cycle()
