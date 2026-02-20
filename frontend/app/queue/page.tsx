@@ -91,33 +91,53 @@ export default function QueuePage() {
     [sortField],
   );
 
+  // Optimistically remove a trade card from the list before the API call completes.
+  // If the call fails, SWR revalidation restores the card automatically.
+  const optimisticRemove = useCallback(
+    (id: string) => {
+      mutate(
+        "/api/queue",
+        (current: PendingTrade[] | undefined) =>
+          current ? current.filter((t) => t.id !== id) : current,
+        false, // don't revalidate yet — we'll do it after the API call
+      );
+    },
+    [],
+  );
+
   const handleApprove = useCallback(async (id: string) => {
     setLoadingId(id);
     setActionError(null);
+    optimisticRemove(id);
     try {
       await approveTrade(id);
-      // Revalidate queue and dashboard
+      // Revalidate queue and dashboard with fresh server data
       await mutate("/api/queue");
       await mutate("/api/dashboard");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Approve failed");
+      // Revalidate to restore the card if the approve failed
+      await mutate("/api/queue");
     } finally {
       setLoadingId(null);
     }
-  }, []);
+  }, [optimisticRemove]);
 
   const handleReject = useCallback(async (id: string) => {
     setLoadingId(id);
     setActionError(null);
+    optimisticRemove(id);
     try {
       await rejectTrade(id);
       await mutate("/api/queue");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Reject failed");
+      // Revalidate to restore the card if the reject failed
+      await mutate("/api/queue");
     } finally {
       setLoadingId(null);
     }
-  }, []);
+  }, [optimisticRemove]);
 
   const isAutoMode = settings?.trading_mode === "auto";
 
