@@ -239,9 +239,7 @@ class KalshiClient:
         Returns:
             List of KalshiMarket models (one per bracket, typically 6).
         """
-        data = await self._request(
-            "GET", f"/markets?event_ticker={event_ticker}&limit=100"
-        )
+        data = await self._request("GET", f"/markets?event_ticker={event_ticker}&limit=100")
         raw_markets = data.get("markets", [])
 
         markets = [KalshiMarket(**m) for m in raw_markets]

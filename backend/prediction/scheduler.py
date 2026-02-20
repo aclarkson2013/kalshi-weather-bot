@@ -413,10 +413,13 @@ def generate_predictions(self) -> dict:
     elapsed = (datetime.now(UTC) - start_time).total_seconds()
 
     if result["generated"] > 0:
-        publish_event_sync("prediction.updated", {
-            "generated": result["generated"],
-            "cities": ["NYC", "CHI", "MIA", "AUS"],
-        })
+        publish_event_sync(
+            "prediction.updated",
+            {
+                "generated": result["generated"],
+                "cities": ["NYC", "CHI", "MIA", "AUS"],
+            },
+        )
 
     logger.info(
         "Prediction generation cycle completed",

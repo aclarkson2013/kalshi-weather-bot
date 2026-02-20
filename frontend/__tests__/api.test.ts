@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getWsUrl } from "@/lib/api";
 
 // Mock window.location
-const mockLocation = { href: "" };
+const mockLocation = { href: "", pathname: "/" };
 Object.defineProperty(window, "location", {
   value: mockLocation,
   writable: true,
@@ -12,6 +12,7 @@ Object.defineProperty(window, "location", {
 describe("API client", () => {
   beforeEach(() => {
     mockLocation.href = "";
+    mockLocation.pathname = "/";
     vi.stubGlobal("fetch", vi.fn());
   });
 
