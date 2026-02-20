@@ -140,6 +140,36 @@ WEATHER_FETCHES_TOTAL = Counter(
 )
 
 
+# ─── XGBoost ML Model Metrics ───
+
+XGB_PREDICTIONS_TOTAL = Counter(
+    "boz_xgb_predictions_total",
+    "XGBoost temperature predictions",
+    labelnames=["city", "status"],
+)
+
+XGB_TRAINING_DURATION_SECONDS = Histogram(
+    "boz_xgb_training_duration_seconds",
+    "XGBoost model training duration",
+    buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0),
+)
+
+
+# ─── Kelly Criterion Metrics ───
+
+KELLY_SIZING_TOTAL = Counter(
+    "boz_kelly_sizing_total",
+    "Kelly Criterion position sizing outcomes",
+    labelnames=["city", "outcome"],
+)
+
+KELLY_CONTRACTS_HISTOGRAM = Histogram(
+    "boz_kelly_contracts",
+    "Number of contracts recommended by Kelly",
+    buckets=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+)
+
+
 def set_app_info(version: str, environment: str) -> None:
     """Set the app_info metric values. Called once at startup."""
     APP_INFO.info({"version": version, "environment": environment})

@@ -493,9 +493,9 @@ Your Machine (homelab / cloud VPS)
 ### 4.2 Phase 2 (Post-MVP) — Not Yet Started
 
 #### P1 - Should Have
-- [ ] **XGBoost ML model** - Trained on historical data for improved predictions
+- [x] **XGBoost ML model** - Trained on historical data for improved predictions (Phase 23)
 - [ ] **Multiple model ensemble** - Combine statistical + ML models with weighted voting
-- [ ] **Kelly Criterion position sizing** - Optimal bet sizing based on edge and bankroll
+- [x] **Kelly Criterion position sizing** - Optimal bet sizing based on edge and bankroll (Phase 24)
 - [ ] **Backtesting module** - Test strategy against historical data
 - [ ] **Historical forecast accuracy tracking** - Monitor model calibration over time
 
@@ -531,7 +531,10 @@ Your Machine (homelab / cloud VPS)
 | 19 | Prometheus alerting | 14 alert rules, 5 groups, Alertmanager webhook routing, inhibit rules | 56 |
 | 20 | Kalshi WS market feed | Persistent WS feed, Redis price cache, cache-first trading, 3 alert rules | 42 |
 | 21 | Grafana WS dashboard | Kalshi WS Feed dashboard (6 panels), timezone test fixes | +9 |
-| **Total** | | **843 backend + 110 frontend = 953 tests** | |
+| 22 | Performance + prod deploy | N+1 fix, SQL aggregation, GZip, smart Cache-Control, multi-stage Docker, prod compose, CI coverage | — |
+| 23 | XGBoost ML model | 21-feature regression, ensemble blend, training pipeline, Celery task, graceful fallback | 62 |
+| 24 | Kelly Criterion sizing | Fractional Kelly (0.25×), fee-adjusted, wired into ev_calculator + scheduler, Prometheus metrics | 18 |
+| **Total** | | **985 backend + 110 frontend = 1095 tests** | |
 
 ---
 

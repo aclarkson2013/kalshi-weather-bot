@@ -836,3 +836,222 @@ class TestSettleTradesTask:
 
         assert result["status"] == "completed"
         assert "elapsed_seconds" in result
+
+
+# ---------------------------------------------------------------------------
+# TestGetBankrollCents
+# ---------------------------------------------------------------------------
+class TestGetBankrollCents:
+    """Tests for _get_bankroll_cents -- bankroll calculation for Kelly sizing."""
+
+    @pytest.mark.asyncio
+    async def test_positive_lifetime_pnl(self) -> None:
+        """Bankroll = base + positive lifetime P&L."""
+        from backend.trading.scheduler import _get_bankroll_cents
+
+        mock_db = AsyncMock()
+        pnl_result = MagicMock()
+        pnl_result.scalar.return_value = 5000  # $50 lifetime profit
+
+        mock_db.execute.return_value = pnl_result
+
+        settings = _make_user_settings(max_daily_exposure_cents=2500)
+        result = await _get_bankroll_cents(mock_db, "user-1", settings)
+        assert result == 7500  # 2500 + 5000
+
+    @pytest.mark.asyncio
+    async def test_negative_lifetime_pnl(self) -> None:
+        """Bankroll = base + negative P&L, floored at $1.00."""
+        from backend.trading.scheduler import _get_bankroll_cents
+
+        mock_db = AsyncMock()
+        pnl_result = MagicMock()
+        pnl_result.scalar.return_value = -3000  # $30 lifetime loss
+
+        mock_db.execute.return_value = pnl_result
+
+        settings = _make_user_settings(max_daily_exposure_cents=2500)
+        result = await _get_bankroll_cents(mock_db, "user-1", settings)
+        assert result == 100  # max(2500 - 3000, 100) = max(-500, 100) = 100
+
+    @pytest.mark.asyncio
+    async def test_no_trades_uses_base(self) -> None:
+        """With no settled trades, bankroll = base exposure limit."""
+        from backend.trading.scheduler import _get_bankroll_cents
+
+        mock_db = AsyncMock()
+        pnl_result = MagicMock()
+        pnl_result.scalar.return_value = 0  # No trades
+
+        mock_db.execute.return_value = pnl_result
+
+        settings = _make_user_settings(max_daily_exposure_cents=5000)
+        result = await _get_bankroll_cents(mock_db, "user-1", settings)
+        assert result == 5000
+
+    @pytest.mark.asyncio
+    async def test_floor_at_100_cents(self) -> None:
+        """Bankroll never goes below $1.00 (100 cents)."""
+        from backend.trading.scheduler import _get_bankroll_cents
+
+        mock_db = AsyncMock()
+        pnl_result = MagicMock()
+        pnl_result.scalar.return_value = -100_000  # Huge loss
+
+        mock_db.execute.return_value = pnl_result
+
+        settings = _make_user_settings(max_daily_exposure_cents=2500)
+        result = await _get_bankroll_cents(mock_db, "user-1", settings)
+        assert result == 100
+
+
+# ---------------------------------------------------------------------------
+# TestTradingCycleKellyIntegration
+# ---------------------------------------------------------------------------
+class TestTradingCycleKellyIntegration:
+    """Tests for Kelly Criterion integration in the trading cycle."""
+
+    @pytest.mark.asyncio
+    async def test_kelly_disabled_no_bankroll_query(self) -> None:
+        """When Kelly is disabled, _get_bankroll_cents is NOT called."""
+        from backend.trading.scheduler import _run_trading_cycle
+
+        mock_session = _make_mock_db_session()
+        settings = _make_user_settings(trading_mode="auto")
+        prediction = _make_prediction()
+        signal = _make_signal()
+
+        mock_risk_mgr = MagicMock()
+        mock_risk_mgr.handle_daily_reset = AsyncMock()
+        mock_risk_mgr.check_trade = AsyncMock(return_value=(True, ""))
+
+        mock_cm = MagicMock()
+        mock_cm.is_cooldown_active = AsyncMock(return_value=(False, ""))
+
+        mock_bankroll = AsyncMock(return_value=50_000)
+
+        with (
+            patch("backend.trading.scheduler._are_markets_open", return_value=True),
+            patch("backend.trading.scheduler.get_task_session", return_value=mock_session),
+            patch("backend.trading.scheduler._load_user_settings", return_value=settings),
+            patch("backend.trading.scheduler._get_user_id", return_value="user-1"),
+            patch("backend.trading.risk_manager.RiskManager", return_value=mock_risk_mgr),
+            patch("backend.trading.cooldown.CooldownManager", return_value=mock_cm),
+            patch("backend.trading.scheduler._get_kalshi_client", return_value=MagicMock()),
+            patch("backend.trading.scheduler._fetch_latest_predictions", return_value=[prediction]),
+            patch("backend.trading.ev_calculator.validate_predictions", return_value=True),
+            patch("backend.trading.scheduler._fetch_market_prices", return_value={"55-56°F": 22}),
+            patch("backend.trading.ev_calculator.validate_market_prices", return_value=True),
+            patch(
+                "backend.trading.scheduler._fetch_market_tickers",
+                return_value={"55-56°F": "KXHIGHNY-B3"},
+            ),
+            patch("backend.trading.ev_calculator.scan_all_brackets", return_value=[signal]),
+            patch("backend.trading.executor.execute_trade", AsyncMock()),
+            patch("backend.trading.scheduler._get_bankroll_cents", mock_bankroll),
+        ):
+            await _run_trading_cycle()
+
+        # Kelly disabled → bankroll should NOT be fetched
+        mock_bankroll.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_kelly_enabled_fetches_bankroll(self) -> None:
+        """When Kelly is enabled, _get_bankroll_cents IS called."""
+        from backend.trading.scheduler import _run_trading_cycle
+
+        mock_session = _make_mock_db_session()
+        settings = _make_user_settings(
+            trading_mode="auto",
+            use_kelly_sizing=True,
+            kelly_fraction=0.25,
+            max_bankroll_pct_per_trade=0.05,
+            max_contracts_per_trade=10,
+        )
+        prediction = _make_prediction()
+        signal = _make_signal()
+
+        mock_risk_mgr = MagicMock()
+        mock_risk_mgr.handle_daily_reset = AsyncMock()
+        mock_risk_mgr.check_trade = AsyncMock(return_value=(True, ""))
+
+        mock_cm = MagicMock()
+        mock_cm.is_cooldown_active = AsyncMock(return_value=(False, ""))
+
+        mock_bankroll = AsyncMock(return_value=50_000)
+
+        with (
+            patch("backend.trading.scheduler._are_markets_open", return_value=True),
+            patch("backend.trading.scheduler.get_task_session", return_value=mock_session),
+            patch("backend.trading.scheduler._load_user_settings", return_value=settings),
+            patch("backend.trading.scheduler._get_user_id", return_value="user-1"),
+            patch("backend.trading.risk_manager.RiskManager", return_value=mock_risk_mgr),
+            patch("backend.trading.cooldown.CooldownManager", return_value=mock_cm),
+            patch("backend.trading.scheduler._get_kalshi_client", return_value=MagicMock()),
+            patch("backend.trading.scheduler._fetch_latest_predictions", return_value=[prediction]),
+            patch("backend.trading.ev_calculator.validate_predictions", return_value=True),
+            patch("backend.trading.scheduler._fetch_market_prices", return_value={"55-56°F": 22}),
+            patch("backend.trading.ev_calculator.validate_market_prices", return_value=True),
+            patch(
+                "backend.trading.scheduler._fetch_market_tickers",
+                return_value={"55-56°F": "KXHIGHNY-B3"},
+            ),
+            patch("backend.trading.ev_calculator.scan_all_brackets", return_value=[signal]),
+            patch("backend.trading.executor.execute_trade", AsyncMock()),
+            patch("backend.trading.scheduler._get_bankroll_cents", mock_bankroll),
+        ):
+            await _run_trading_cycle()
+
+        mock_bankroll.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_kelly_params_passed_to_scan(self) -> None:
+        """scan_all_brackets receives kelly_settings and bankroll_cents."""
+        from backend.trading.scheduler import _run_trading_cycle
+
+        mock_session = _make_mock_db_session()
+        settings = _make_user_settings(
+            trading_mode="auto",
+            use_kelly_sizing=True,
+            kelly_fraction=0.25,
+            max_bankroll_pct_per_trade=0.05,
+            max_contracts_per_trade=10,
+        )
+        prediction = _make_prediction()
+
+        mock_risk_mgr = MagicMock()
+        mock_risk_mgr.handle_daily_reset = AsyncMock()
+
+        mock_cm = MagicMock()
+        mock_cm.is_cooldown_active = AsyncMock(return_value=(False, ""))
+
+        mock_scan = MagicMock(return_value=[])
+
+        with (
+            patch("backend.trading.scheduler._are_markets_open", return_value=True),
+            patch("backend.trading.scheduler.get_task_session", return_value=mock_session),
+            patch("backend.trading.scheduler._load_user_settings", return_value=settings),
+            patch("backend.trading.scheduler._get_user_id", return_value="user-1"),
+            patch("backend.trading.risk_manager.RiskManager", return_value=mock_risk_mgr),
+            patch("backend.trading.cooldown.CooldownManager", return_value=mock_cm),
+            patch("backend.trading.scheduler._get_kalshi_client", return_value=MagicMock()),
+            patch("backend.trading.scheduler._fetch_latest_predictions", return_value=[prediction]),
+            patch("backend.trading.ev_calculator.validate_predictions", return_value=True),
+            patch("backend.trading.scheduler._fetch_market_prices", return_value={"55-56°F": 22}),
+            patch("backend.trading.ev_calculator.validate_market_prices", return_value=True),
+            patch(
+                "backend.trading.scheduler._fetch_market_tickers",
+                return_value={"55-56°F": "KXHIGHNY-B3"},
+            ),
+            patch("backend.trading.ev_calculator.scan_all_brackets", mock_scan),
+            patch("backend.trading.scheduler._get_bankroll_cents", AsyncMock(return_value=75_000)),
+        ):
+            await _run_trading_cycle()
+
+        # Verify Kelly params were passed
+        mock_scan.assert_called_once()
+        call_kwargs = mock_scan.call_args
+        # scan_all_brackets is called with positional + keyword args
+        assert call_kwargs.kwargs.get("bankroll_cents") == 75_000
+        assert call_kwargs.kwargs.get("kelly_settings") is not None
+        assert call_kwargs.kwargs.get("max_trade_size_cents") == 100

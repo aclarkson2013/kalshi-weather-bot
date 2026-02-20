@@ -8,6 +8,7 @@ Fee calculation returns CENTS (int).
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -21,6 +22,7 @@ from backend.trading.ev_calculator import (
     validate_market_prices,
     validate_predictions,
 )
+from backend.trading.kelly import KellySettings
 
 ET = ZoneInfo("America/New_York")
 
@@ -430,3 +432,265 @@ class TestValidateMarketPrices:
         """Float price is invalid."""
         prices = {"53-54F": 22.5}
         assert validate_market_prices(prices) is False
+
+
+# ---------------------------------------------------------------------------
+# TestScanBracketKellyIntegration
+# ---------------------------------------------------------------------------
+class TestScanBracketKellyIntegration:
+    """Test Kelly Criterion integration with scan_bracket and scan_all_brackets."""
+
+    def _scan_with_kelly(
+        self,
+        kelly_enabled: bool = True,
+        kelly_fraction: float = 0.25,
+        max_contracts: int = 10,
+        max_bankroll_pct: float = 0.05,
+        bankroll_cents: int = 50_000,
+        max_trade_size_cents: int = 5000,
+        bracket_probability: float = 0.45,
+        market_price_cents: int = 22,
+    ) -> TradeSignal | None:
+        """Helper to call scan_bracket with Kelly params."""
+        settings = KellySettings(
+            use_kelly_sizing=kelly_enabled,
+            kelly_fraction=kelly_fraction,
+            max_contracts_per_trade=max_contracts,
+            max_bankroll_pct_per_trade=max_bankroll_pct,
+        )
+        return scan_bracket(
+            bracket_label="55-56F",
+            bracket_probability=bracket_probability,
+            market_price_cents=market_price_cents,
+            min_ev_threshold=0.01,
+            city="NYC",
+            prediction_date="2026-02-18",
+            confidence="medium",
+            market_ticker="KXHIGHNY-26FEB18-B3",
+            kelly_settings=settings,
+            bankroll_cents=bankroll_cents,
+            max_trade_size_cents=max_trade_size_cents,
+        )
+
+    def test_kelly_disabled_returns_quantity_one(self) -> None:
+        """When kelly_settings.use_kelly_sizing=False, quantity=1."""
+        signal = self._scan_with_kelly(kelly_enabled=False)
+        assert signal is not None
+        assert signal.quantity == 1
+
+    def test_kelly_none_returns_quantity_one(self) -> None:
+        """When kelly_settings is None, quantity=1 (backward compatible)."""
+        signal = scan_bracket(
+            bracket_label="55-56F",
+            bracket_probability=0.45,
+            market_price_cents=22,
+            min_ev_threshold=0.01,
+            city="NYC",
+            prediction_date="2026-02-18",
+            confidence="medium",
+            market_ticker="KXHIGHNY-26FEB18-B3",
+        )
+        assert signal is not None
+        assert signal.quantity == 1
+
+    def test_kelly_enabled_increases_quantity(self) -> None:
+        """With Kelly enabled and large bankroll, quantity should be > 1."""
+        signal = self._scan_with_kelly(
+            bankroll_cents=100_000,
+            max_contracts=100,
+            max_bankroll_pct=0.50,
+            max_trade_size_cents=100_000,
+            kelly_fraction=0.50,
+        )
+        assert signal is not None
+        assert signal.quantity > 1
+
+    def test_kelly_no_edge_returns_none(self) -> None:
+        """When Kelly finds no edge after fees, the trade is skipped."""
+        # Model prob = 50%, market = 50c → no edge after fees
+        signal = self._scan_with_kelly(
+            bracket_probability=0.50,
+            market_price_cents=50,
+        )
+        # EV threshold may catch this too, but with min_ev=0.01 it might pass EV
+        # but fail Kelly (which is stricter about fees)
+        # Either way, the trade should be None or have quantity
+        # Actually the EV calc itself will return None since both sides are -EV with fees
+        assert signal is None
+
+    def test_max_contracts_cap_respected(self) -> None:
+        """Kelly output is capped at max_contracts_per_trade."""
+        signal = self._scan_with_kelly(
+            bankroll_cents=1_000_000,
+            max_contracts=3,
+            max_bankroll_pct=1.0,
+            max_trade_size_cents=1_000_000,
+            kelly_fraction=1.0,
+        )
+        assert signal is not None
+        assert signal.quantity <= 3
+
+    def test_max_bankroll_pct_cap(self) -> None:
+        """Quantity limited by bankroll percentage cap."""
+        # Bankroll = 10000c, 2% = 200c. YES at 50c → max 4 contracts
+        signal = self._scan_with_kelly(
+            bankroll_cents=10_000,
+            max_contracts=100,
+            max_bankroll_pct=0.02,
+            max_trade_size_cents=100_000,
+            kelly_fraction=1.0,
+            bracket_probability=0.80,
+            market_price_cents=50,
+        )
+        assert signal is not None
+        assert signal.quantity <= 4
+
+    def test_max_trade_size_cap(self) -> None:
+        """Quantity limited by max_trade_size_cents."""
+        # max_trade_size = 50c, YES at 22c → max 2 contracts
+        signal = self._scan_with_kelly(
+            bankroll_cents=1_000_000,
+            max_contracts=100,
+            max_bankroll_pct=1.0,
+            max_trade_size_cents=50,
+            kelly_fraction=1.0,
+        )
+        assert signal is not None
+        assert signal.quantity <= 2
+
+    def test_small_bankroll_floors_to_one(self) -> None:
+        """With tiny bankroll and positive edge, floors to 1 contract."""
+        signal = self._scan_with_kelly(
+            bankroll_cents=100,
+            kelly_fraction=0.10,
+        )
+        assert signal is not None
+        assert signal.quantity == 1
+
+    def test_kelly_failure_falls_back_to_one(self) -> None:
+        """If Kelly raises, graceful degradation to quantity=1."""
+        settings = KellySettings(use_kelly_sizing=True, kelly_fraction=0.25)
+        with patch(
+            "backend.trading.kelly.calculate_kelly_size",
+            side_effect=RuntimeError("model crashed"),
+        ):
+            signal = scan_bracket(
+                bracket_label="55-56F",
+                bracket_probability=0.45,
+                market_price_cents=22,
+                min_ev_threshold=0.01,
+                city="NYC",
+                prediction_date="2026-02-18",
+                confidence="medium",
+                market_ticker="KXHIGHNY-26FEB18-B3",
+                kelly_settings=settings,
+                bankroll_cents=50_000,
+                max_trade_size_cents=5000,
+            )
+        assert signal is not None
+        assert signal.quantity == 1
+
+    def test_scan_all_brackets_passes_kelly_params(self) -> None:
+        """scan_all_brackets passes Kelly settings through to scan_bracket."""
+        brackets = [
+            BracketProbability(bracket_label="53-54F", probability=0.05),
+            BracketProbability(bracket_label="55-56F", probability=0.45),
+            BracketProbability(bracket_label="57-58F", probability=0.25),
+            BracketProbability(bracket_label="59-60F", probability=0.10),
+            BracketProbability(bracket_label="<=52F", probability=0.05),
+            BracketProbability(bracket_label=">=61F", probability=0.10),
+        ]
+        prediction = BracketPrediction(
+            city="NYC",
+            date=date(2026, 2, 18),
+            brackets=brackets,
+            ensemble_mean_f=55.0,
+            ensemble_std_f=2.0,
+            confidence="medium",
+            model_sources=["NWS", "GFS"],
+            generated_at=datetime.now(UTC),
+        )
+        market_prices = {
+            "53-54F": 5,
+            "55-56F": 22,
+            "57-58F": 20,
+            "59-60F": 5,
+            "<=52F": 5,
+            ">=61F": 5,
+        }
+        market_tickers = {
+            "53-54F": "T1",
+            "55-56F": "T2",
+            "57-58F": "T3",
+            "59-60F": "T4",
+            "<=52F": "T5",
+            ">=61F": "T6",
+        }
+        settings = KellySettings(
+            use_kelly_sizing=True,
+            kelly_fraction=0.25,
+            max_contracts_per_trade=100,
+            max_bankroll_pct_per_trade=0.50,
+        )
+        signals = scan_all_brackets(
+            prediction,
+            market_prices,
+            market_tickers,
+            0.01,
+            kelly_settings=settings,
+            bankroll_cents=100_000,
+            max_trade_size_cents=100_000,
+        )
+        # All signals should have Kelly-calculated quantities
+        for s in signals:
+            assert s.quantity >= 1
+
+    def test_sort_order_preserved_with_kelly(self) -> None:
+        """Signals are still sorted by EV descending after Kelly sizing."""
+        brackets = [
+            BracketProbability(bracket_label="53-54F", probability=0.10),
+            BracketProbability(bracket_label="55-56F", probability=0.10),
+            BracketProbability(bracket_label="57-58F", probability=0.50),
+            BracketProbability(bracket_label="59-60F", probability=0.10),
+            BracketProbability(bracket_label="<=52F", probability=0.10),
+            BracketProbability(bracket_label=">=61F", probability=0.10),
+        ]
+        prediction = BracketPrediction(
+            city="NYC",
+            date=date(2026, 2, 18),
+            brackets=brackets,
+            ensemble_mean_f=55.0,
+            ensemble_std_f=2.0,
+            confidence="medium",
+            model_sources=["NWS"],
+            generated_at=datetime.now(UTC),
+        )
+        market_prices = {
+            "53-54F": 5,
+            "55-56F": 5,
+            "57-58F": 22,
+            "59-60F": 5,
+            "<=52F": 5,
+            ">=61F": 5,
+        }
+        market_tickers = {
+            "53-54F": "T1",
+            "55-56F": "T2",
+            "57-58F": "T3",
+            "59-60F": "T4",
+            "<=52F": "T5",
+            ">=61F": "T6",
+        }
+        settings = KellySettings(use_kelly_sizing=True, kelly_fraction=0.25)
+        signals = scan_all_brackets(
+            prediction,
+            market_prices,
+            market_tickers,
+            0.01,
+            kelly_settings=settings,
+            bankroll_cents=50_000,
+            max_trade_size_cents=5000,
+        )
+        if len(signals) > 1:
+            for i in range(len(signals) - 1):
+                assert signals[i].ev >= signals[i + 1].ev

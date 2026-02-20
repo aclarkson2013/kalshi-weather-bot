@@ -243,6 +243,11 @@ async def _run_trading_cycle() -> None:
             TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
+        # Fetch bankroll for Kelly sizing
+        bankroll_cents = 0
+        if user_settings.use_kelly_sizing:
+            bankroll_cents = await _get_bankroll_cents(session, user_id, user_settings)
+
         # Steps 5-11: Fetch predictions, scan, execute/queue
         # These are placeholders that need the prediction engine and
         # Kalshi client to be fully wired up.
@@ -299,12 +304,27 @@ async def _run_trading_cycle() -> None:
                 kalshi_client, prediction.city, prediction.date
             )
 
+            # Build KellySettings from user settings
+            kelly_settings = None
+            if user_settings.use_kelly_sizing:
+                from backend.trading.kelly import KellySettings
+
+                kelly_settings = KellySettings(
+                    use_kelly_sizing=True,
+                    kelly_fraction=user_settings.kelly_fraction,
+                    max_bankroll_pct_per_trade=user_settings.max_bankroll_pct_per_trade,
+                    max_contracts_per_trade=user_settings.max_contracts_per_trade,
+                )
+
             # Scan for opportunities
             signals = scan_all_brackets(
                 prediction,
                 market_prices,
                 market_tickers,
                 user_settings.min_ev_threshold,
+                kelly_settings=kelly_settings,
+                bankroll_cents=bankroll_cents,
+                max_trade_size_cents=user_settings.max_trade_size_cents,
             )
             if not signals:
                 logger.debug(
@@ -612,6 +632,37 @@ async def _get_notification_service(db, user_id: str) -> object | None:
             extra={"data": {"error": str(exc)}},
         )
         return None
+
+
+async def _get_bankroll_cents(db, user_id: str, user_settings: object) -> int:
+    """Get user's available bankroll for Kelly position sizing.
+
+    Bankroll = base exposure limit + lifetime settled P&L.
+    Uses max_daily_exposure_cents as the base bankroll proxy since we
+    don't track deposits/withdrawals yet.
+
+    Args:
+        db: Async database session.
+        user_id: The user ID.
+        user_settings: UserSettings with max_daily_exposure_cents.
+
+    Returns:
+        Bankroll in cents (minimum 100 = $1.00).
+    """
+    from sqlalchemy import func, select
+
+    from backend.common.models import Trade
+
+    result = await db.execute(
+        select(func.coalesce(func.sum(Trade.pnl_cents), 0)).where(
+            Trade.user_id == user_id,
+            Trade.settled_at.isnot(None),
+        )
+    )
+    lifetime_pnl = int(result.scalar())
+
+    base = getattr(user_settings, "max_daily_exposure_cents", 2500)
+    return max(base + lifetime_pnl, 100)  # Floor at $1.00
 
 
 async def _fetch_latest_predictions(db, cities: list[str]) -> list:

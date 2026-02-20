@@ -67,6 +67,11 @@ celery_app.conf.beat_schedule = {
         "task": "backend.trading.scheduler.settle_trades",
         "schedule": crontab(hour=9, minute=0),
     },
+    # Agent 3: Prediction — retrain XGBoost model weekly (Sunday 3 AM ET)
+    "retrain-xgb-model": {
+        "task": "backend.prediction.train_xgb.train_xgb_model",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),
+    },
 }
 
 

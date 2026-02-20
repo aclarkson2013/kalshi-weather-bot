@@ -77,7 +77,7 @@ class TestIsCooldownActive:
         with patch.object(cm, "_get_daily_state", return_value=mock_state):
             is_active, reason = await cm.is_cooldown_active()
         assert is_active is True
-        assert "cooldown" in reason.lower() or "Per-loss" in reason
+        assert "cooldown" in reason.lower() or "consecutive" in reason.lower()
 
 
 class TestOnTradeLoss:

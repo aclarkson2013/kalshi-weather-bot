@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     kalshi_ws_cache_ttl_seconds: int = 120
     kalshi_ws_refresh_minutes: int = 5
 
+    # ─── XGBoost ML Model ───
+    xgb_model_dir: str = "models"
+    xgb_ensemble_weight: float = 0.30  # XGBoost weight in final blend (0.0 = disabled)
+    xgb_min_training_samples: int = 60  # Min forecast+settlement pairs to train
+    xgb_retrain_interval_days: int = 14  # Retrain frequency
+
     # ─── Celery ───
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"

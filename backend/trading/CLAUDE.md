@@ -9,13 +9,15 @@ Build the trading decision engine: EV calculation, risk management, cooldown log
 ```
 backend/trading/
 ├── __init__.py
-├── ev_calculator.py   -> Expected value calculation for each bracket
+├── ev_calculator.py   -> Expected value calculation + Kelly-sized signals for each bracket
+├── kelly.py           -> Kelly Criterion position sizing (fractional Kelly, fee-adjusted, safety caps)
 ├── risk_manager.py    -> Position limits, daily loss, exposure tracking
 ├── cooldown.py        -> Cooldown timer logic (per-loss and consecutive)
 ├── trade_queue.py     -> Trade approval queue for manual mode
 ├── executor.py        -> Trade execution orchestrator (auto + manual modes)
 ├── postmortem.py      -> Generate full trade post-mortem after settlement
-├── scheduler.py       -> Celery tasks for trading cycle
+├── scheduler.py       -> Celery tasks for trading cycle (passes Kelly params)
+├── notifications.py   -> Web push notifications via VAPID
 └── exceptions.py      -> Trading-specific exceptions (or import from common)
 ```
 

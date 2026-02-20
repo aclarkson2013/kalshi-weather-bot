@@ -24,13 +24,68 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.common.config import get_settings
 from backend.common.logging import get_logger
+from backend.common.metrics import XGB_PREDICTIONS_TOTAL
 from backend.common.schemas import BracketPrediction, WeatherData
 from backend.prediction.brackets import calculate_bracket_probabilities
 from backend.prediction.ensemble import assess_confidence, calculate_ensemble_forecast
 from backend.prediction.error_dist import calculate_error_std
+from backend.prediction.features import extract_features
+from backend.prediction.xgb_model import XGBModelManager
 
 logger = get_logger("MODEL")
+
+# ─── XGBoost singleton (lazy-loaded on first use) ───
+_xgb_manager: XGBModelManager | None = None
+
+
+def _get_xgb_manager() -> XGBModelManager:
+    """Get or initialize the XGBoost model manager singleton."""
+    global _xgb_manager  # noqa: PLW0603
+    if _xgb_manager is None:
+        settings = get_settings()
+        _xgb_manager = XGBModelManager(model_dir=settings.xgb_model_dir)
+        if _xgb_manager.load():
+            logger.info("XGBoost model loaded successfully")
+        else:
+            logger.info("No XGBoost model available — ensemble-only mode")
+    return _xgb_manager
+
+
+def _try_xgb_prediction(
+    forecasts: list[WeatherData],
+    city: str,
+    target_date: date,
+) -> float | None:
+    """Attempt an XGBoost prediction, returning None on any failure.
+
+    This function wraps all XGBoost logic in try/except so the pipeline
+    never crashes due to ML issues — it just falls back to ensemble-only.
+    """
+    settings = get_settings()
+    if settings.xgb_ensemble_weight <= 0.0:
+        return None
+
+    try:
+        manager = _get_xgb_manager()
+        if not manager.is_available():
+            return None
+
+        features = extract_features(forecasts, city, target_date)
+        prediction = manager.predict(features)
+
+        XGB_PREDICTIONS_TOTAL.labels(city=city, status="success").inc()
+        return prediction
+
+    except Exception:
+        XGB_PREDICTIONS_TOTAL.labels(city=city, status="error").inc()
+        logger.warning(
+            "XGBoost prediction failed — falling back to ensemble",
+            extra={"data": {"city": city, "date": str(target_date)}},
+            exc_info=True,
+        )
+        return None
 
 
 async def generate_prediction(
@@ -65,6 +120,26 @@ async def generate_prediction(
         forecasts,
         weights=model_weights,
     )
+
+    # Step 1b: XGBoost prediction (blended with ensemble, graceful degradation)
+    xgb_temp = _try_xgb_prediction(forecasts, city, target_date)
+    if xgb_temp is not None:
+        xgb_weight = get_settings().xgb_ensemble_weight
+        final_temp = (1 - xgb_weight) * ensemble_temp + xgb_weight * xgb_temp
+        sources.append("XGBoost")
+        logger.debug(
+            "XGBoost blended",
+            extra={
+                "data": {
+                    "city": city,
+                    "ensemble_temp": round(ensemble_temp, 2),
+                    "xgb_temp": round(xgb_temp, 2),
+                    "xgb_weight": xgb_weight,
+                    "final_temp": round(final_temp, 2),
+                }
+            },
+        )
+        ensemble_temp = final_temp
 
     # Step 2: Historical error distribution
     error_std = await calculate_error_std(

@@ -11,13 +11,50 @@ This document is the complete specification. An agent should be able to build ev
 ```
 backend/prediction/
 ├── __init__.py
+├── pipeline.py       -> Prediction pipeline orchestrator (ensemble → XGBoost blend → error dist → brackets)
 ├── ensemble.py       -> Weighted ensemble of multiple forecast sources + confidence assessment
+├── features.py       -> XGBoost feature engineering (21 features, pure module, no I/O)
+├── xgb_model.py      -> XGBoost model manager (load, predict, train, save, JSON serialization)
+├── train_xgb.py      -> XGBoost training Celery task (weekly retraining from historical data)
 ├── brackets.py       -> Bracket probability calculator (scipy CDF)
 ├── error_dist.py     -> Historical forecast error distribution analysis
 ├── calibration.py    -> Model calibration against historical actuals
 ├── postmortem.py     -> Generate trade post-mortem data after settlement
 └── exceptions.py     -> Prediction-specific exceptions
 ```
+
+## XGBoost ML Model (Phase 23)
+
+XGBoost provides a learned temperature prediction that blends with the static ensemble:
+
+### Architecture
+1. **Ensemble** (weighted average of NWS, ECMWF, GFS, ICON, GEM) → `ensemble_temp`
+2. **XGBoost** regression on 21 features → `xgb_temp`
+3. **Blend**: `final_temp = (1 - xgb_weight) * ensemble_temp + xgb_weight * xgb_temp` (default 70/30)
+4. Graceful fallback: if model missing or prediction fails → ensemble-only
+
+### Feature Vector (21 features)
+- Per-source highs (4): NWS, ECMWF, GFS, ICON
+- Per-source lows (4): NWS, ECMWF, GFS, ICON
+- NWS weather vars (3): humidity, wind speed, cloud cover
+- Ensemble stats (2): spread (max-min), source count
+- Temporal (4): month, day_of_year, sin(month), cos(month)
+- City one-hot (4): NYC, CHI, MIA, AUS
+- XGBoost handles NaN natively — missing sources become NaN
+
+### Training Pipeline (`train_xgb.py`)
+- Celery task, scheduled Sunday 3 AM ET via Celery Beat
+- SQL pivot query joins WeatherForecast + Settlement
+- Chronological 80/20 split (NOT random — time series)
+- Model rejection: test RMSE > 5.0°F → don't save
+- JSON serialization (portable, not pickle)
+- Min 60 training samples required
+
+### Configuration (`config.py`)
+- `xgb_model_dir`: model file directory (default: "models")
+- `xgb_ensemble_weight`: blend weight (default: 0.30)
+- `xgb_min_training_samples`: minimum pairs to train (default: 60)
+- `xgb_retrain_interval_days`: retrain frequency (default: 14)
 
 ## Dependencies
 

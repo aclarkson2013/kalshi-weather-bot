@@ -15,8 +15,8 @@ backend/
   ├── celery_app.py → Celery config, beat schedule, task signal instrumentation
   ├── weather/     → Agent 1: NWS + Open-Meteo data pipeline
   ├── kalshi/      → Agent 2: Kalshi API client (auth, orders, markets, WS feed, Redis cache)
-  ├── prediction/  → Agent 3: Statistical ensemble + bracket probabilities
-  ├── trading/     → Agent 4: EV calculator, risk controls, trade queue
+  ├── prediction/  → Agent 3: Statistical ensemble + XGBoost ML + bracket probabilities
+  ├── trading/     → Agent 4: EV calculator, Kelly sizing, risk controls, trade queue
   ├── websocket/   → Real-time event push (Redis pub/sub → WebSocket → SWR revalidation)
   └── common/      → Shared schemas, config, database, logging, middleware, metrics
 monitoring/
@@ -27,12 +27,12 @@ monitoring/
   └── grafana/     → Grafana provisioning + dashboard JSON files
       ├── provisioning/  → Auto-provisioned datasources + dashboard provider
       └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels) + Kalshi WS Feed (6 panels)
-tests/                   → 905 backend tests (all passing)
+tests/                   → 985 backend tests (all passing)
   ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (118)
   ├── weather/     → Weather pipeline: NWS, Open-Meteo, normalizer, stations, CLI parser, scheduler (140)
   ├── kalshi/      → Kalshi client: auth, REST, WS, markets, orders, models, cache, market feed (119)
-  ├── prediction/  → Prediction engine: ensemble, brackets, error dist, calibration, pipeline (61)
-  ├── trading/     → Trading engine: EV calc, risk, cooldowns, queue, executor, scheduler, safety (133)
+  ├── prediction/  → Prediction engine: ensemble, XGBoost, brackets, error dist, calibration, pipeline (123)
+  ├── trading/     → Trading engine: EV calc, Kelly sizing, risk, cooldowns, queue, executor, scheduler, safety (151)
   ├── api/         → API endpoints: auth, dashboard, health, markets, queue, settings, trades, optimization (77)
   ├── websocket/   → WebSocket: events, manager, subscriber, router (35)
   ├── e2e/         → End-to-end smoke tests (35)
@@ -44,7 +44,7 @@ tests/                   → 905 backend tests (all passing)
 
 - **Backend:** Python 3.11+, FastAPI, Celery + Redis, PostgreSQL
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
-- **ML/Stats:** scipy, numpy (Gaussian CDF for bracket probabilities)
+- **ML/Stats:** scipy, numpy, XGBoost, scikit-learn (Gaussian CDF + ML temperature prediction)
 - **Monitoring:** prometheus-client, Prometheus, Grafana (auto-provisioned dashboards), Alertmanager (webhook alerts)
 - **Containerization:** Docker + Docker Compose (9 services incl. Prometheus, Grafana, Alertmanager) + `docker-compose.prod.yml` production overrides
 - **Testing:** pytest (backend), Jest/Vitest (frontend)

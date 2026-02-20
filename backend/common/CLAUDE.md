@@ -821,6 +821,8 @@ All Prometheus metric objects are module-level singletons. Import them wherever 
 | `TRADES_EXECUTED_TOTAL` | Counter | mode, city | Trades executed (auto/queued) |
 | `TRADES_RISK_BLOCKED_TOTAL` | Counter | reason | Trades blocked by risk manager |
 | `WEATHER_FETCHES_TOTAL` | Counter | source, city, outcome | Weather data fetch results |
+| `XGB_PREDICTIONS_TOTAL` | Counter | city, status | XGBoost temperature predictions (success/error) |
+| `XGB_TRAINING_DURATION_SECONDS` | Histogram | — | XGBoost model training duration |
 
 ### Usage
 

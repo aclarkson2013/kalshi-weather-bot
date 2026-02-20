@@ -30,7 +30,7 @@ backend/
 │   └── metrics.py       → Centralized Prometheus metric definitions (counters, histograms, gauges)
 ├── weather/             → Agent 1: Weather data pipeline
 ├── kalshi/              → Agent 2: Kalshi API client (auth, orders, markets, WS feed, cache)
-├── prediction/          → Agent 3: Prediction engine
+├── prediction/          → Agent 3: Prediction engine (ensemble + XGBoost ML + brackets)
 ├── trading/             → Agent 4: Trading engine
 ├── websocket/           → Real-time event streaming (Redis pub/sub → WebSocket → browser)
 │   ├── events.py        → WebSocketEvent model, publish_event() async + publish_event_sync() wrapper

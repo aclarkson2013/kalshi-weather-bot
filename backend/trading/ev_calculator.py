@@ -120,11 +120,15 @@ def scan_bracket(
     prediction_date: str,
     confidence: str,
     market_ticker: str,
+    kelly_settings: object | None = None,
+    bankroll_cents: int = 0,
+    max_trade_size_cents: int = 100,
 ) -> TradeSignal | None:
     """Scan a single bracket for trading opportunities on both YES and NO sides.
 
     Calculates EV for both sides and returns a TradeSignal for the better
-    side if it meets the minimum threshold.
+    side if it meets the minimum threshold. If Kelly sizing is enabled,
+    the signal's quantity is sized optimally based on edge and bankroll.
 
     Args:
         bracket_label: Bracket label string (e.g., "53-54F").
@@ -135,6 +139,9 @@ def scan_bracket(
         prediction_date: Date string for the event.
         confidence: Model confidence level ("high", "medium", "low").
         market_ticker: Kalshi market ticker string.
+        kelly_settings: KellySettings for position sizing (None = 1 contract).
+        bankroll_cents: Total bankroll in cents for Kelly sizing.
+        max_trade_size_cents: Max cost per trade from risk manager.
 
     Returns:
         TradeSignal if a +EV opportunity exists, None otherwise.
@@ -177,12 +184,50 @@ def scan_bracket(
     else:
         market_prob = (100 - market_price_cents) / 100
 
+    # Kelly Criterion position sizing (graceful degradation)
+    quantity = 1
+    if kelly_settings is not None and getattr(kelly_settings, "use_kelly_sizing", False):
+        try:
+            from backend.common.metrics import KELLY_CONTRACTS_HISTOGRAM, KELLY_SIZING_TOTAL
+            from backend.trading.kelly import calculate_kelly_size
+
+            result = calculate_kelly_size(
+                model_prob=bracket_probability,
+                price_cents=market_price_cents,
+                side=best_side,
+                bankroll_cents=bankroll_cents,
+                settings=kelly_settings,
+                max_trade_size_cents=max_trade_size_cents,
+            )
+            if result.optimal_quantity == 0:
+                KELLY_SIZING_TOTAL.labels(city=city, outcome="no_edge").inc()
+                logger.debug(
+                    "Kelly says no edge — skipping trade",
+                    extra={
+                        "data": {
+                            "city": city,
+                            "bracket": bracket_label,
+                            "kelly_fraction": result.raw_kelly_fraction,
+                        }
+                    },
+                )
+                return None
+            quantity = result.optimal_quantity
+            KELLY_SIZING_TOTAL.labels(city=city, outcome="sized").inc()
+            KELLY_CONTRACTS_HISTOGRAM.observe(quantity)
+        except Exception as exc:
+            logger.warning(
+                "Kelly sizing failed, falling back to 1 contract",
+                extra={"data": {"error": str(exc), "city": city, "bracket": bracket_label}},
+            )
+            quantity = 1
+
     return TradeSignal(
         city=city,
         bracket=bracket_label,
         side=best_side,
         price_cents=market_price_cents,
-        quantity=1,
+        quantity=quantity,
         model_probability=bracket_probability,
         market_probability=round(market_prob, 4),
         ev=best_ev,
@@ -199,6 +244,9 @@ def scan_all_brackets(
     market_prices: dict[str, int],
     market_tickers: dict[str, str],
     min_ev_threshold: float,
+    kelly_settings: object | None = None,
+    bankroll_cents: int = 0,
+    max_trade_size_cents: int = 100,
 ) -> list[TradeSignal]:
     """Scan all brackets for a city and return all +EV trade signals.
 
@@ -207,6 +255,9 @@ def scan_all_brackets(
         market_prices: Mapping of bracket label to current YES price in cents.
         market_tickers: Mapping of bracket label to Kalshi market ticker string.
         min_ev_threshold: Minimum EV in dollars to trigger a trade.
+        kelly_settings: KellySettings for position sizing (None = 1 contract).
+        bankroll_cents: Total bankroll in cents for Kelly sizing.
+        max_trade_size_cents: Max cost per trade from risk manager.
 
     Returns:
         List of TradeSignal objects, sorted by EV descending (best first).
@@ -249,6 +300,9 @@ def scan_all_brackets(
             prediction_date=str(prediction.date),
             confidence=prediction.confidence,
             market_ticker=ticker,
+            kelly_settings=kelly_settings,
+            bankroll_cents=bankroll_cents,
+            max_trade_size_cents=max_trade_size_cents,
         )
         if signal is not None:
             signals.append(signal)
