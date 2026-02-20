@@ -15,7 +15,7 @@ backend/
   ├── celery_app.py → Celery config, beat schedule, task signal instrumentation
   ├── weather/     → Agent 1: NWS + Open-Meteo data pipeline
   ├── kalshi/      → Agent 2: Kalshi API client (auth, orders, markets, WS feed, Redis cache)
-  ├── prediction/  → Agent 3: Statistical ensemble + XGBoost ML + bracket probabilities
+  ├── prediction/  → Agent 3: Statistical ensemble + XGBoost ML + bracket probabilities + accuracy tracking
   ├── trading/     → Agent 4: EV calculator, Kelly sizing, risk controls, trade queue
   ├── backtesting/ → Backtesting engine: day-by-day simulation, synthetic prices, metrics
   ├── websocket/   → Real-time event push (Redis pub/sub → WebSocket → SWR revalidation)
@@ -28,18 +28,18 @@ monitoring/
   └── grafana/     → Grafana provisioning + dashboard JSON files
       ├── provisioning/  → Auto-provisioned datasources + dashboard provider
       └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels) + Kalshi WS Feed (6 panels)
-tests/                   → 1080 backend tests (all passing)
-  ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (118)
+tests/                   → 1134 backend tests (all passing)
+  ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (116)
   ├── weather/     → Weather pipeline: NWS, Open-Meteo, normalizer, stations, CLI parser, scheduler (140)
   ├── kalshi/      → Kalshi client: auth, REST, WS, markets, orders, models, cache, market feed (119)
-  ├── prediction/  → Prediction engine: ensemble, XGBoost, brackets, error dist, calibration, pipeline (123)
-  ├── trading/     → Trading engine: EV calc, Kelly sizing, risk, cooldowns, queue, executor, scheduler, safety (151)
+  ├── prediction/  → Prediction engine: ensemble, XGBoost, brackets, error dist, accuracy, calibration, pipeline (160)
+  ├── trading/     → Trading engine: EV calc, Kelly sizing, risk, cooldowns, queue, executor, scheduler, safety (202)
   ├── backtesting/ → Backtesting engine: schemas, risk sim, data loader, engine, metrics, integration (95)
-  ├── api/         → API endpoints: auth, dashboard, health, markets, queue, settings, trades, optimization (77)
+  ├── api/         → API endpoints: auth, dashboard, health, markets, queue, settings, trades, accuracy, optimization (93)
   ├── websocket/   → WebSocket: events, manager, subscriber, router (35)
   ├── e2e/         → End-to-end smoke tests (35)
   ├── integration/ → Cross-module integration tests (47)
-  └── (root)       → Grafana dashboards, alert rules, alertmanager config validation (58)
+  └── (root)       → Grafana dashboards, alert rules, alertmanager config validation (92)
 ```
 
 ## Tech Stack

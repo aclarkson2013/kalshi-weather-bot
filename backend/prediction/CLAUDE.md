@@ -18,7 +18,8 @@ backend/prediction/
 ├── train_xgb.py      -> XGBoost training Celery task (weekly retraining from historical data)
 ├── brackets.py       -> Bracket probability calculator (scipy CDF)
 ├── error_dist.py     -> Historical forecast error distribution analysis
-├── calibration.py    -> Model calibration against historical actuals
+├── accuracy.py       -> Per-source forecast accuracy (MAE, RMSE, bias) + error trends
+├── calibration.py    -> Real calibration: Brier score + calibration buckets (replaces Phase 2 stub)
 ├── postmortem.py     -> Generate trade post-mortem data after settlement
 └── exceptions.py     -> Prediction-specific exceptions
 ```
@@ -1050,67 +1051,24 @@ def test_confidence_medium():
     assert result == "MEDIUM"  # score = 3
 ```
 
-## Calibration: `backend/prediction/calibration.py`
+## Calibration: `backend/prediction/calibration.py` (Phase 26 — real implementation)
 
-Calibration is a Phase 2 feature but the file should exist with a stub:
+Computes Brier score and calibration buckets by joining Prediction.brackets_json with Settlement.actual_high_f.
 
-```python
-from __future__ import annotations
+- `check_calibration(city, db_session, lookback_days=90) -> CalibrationReport`
+- Requires minimum 10 prediction/settlement pairs, otherwise returns "insufficient_data"
+- `_temp_in_bracket(temp, lower, upper)` — helper for bracket matching
+- Calibration buckets: 10 bins of 10% width (0-10%, 10-20%, ..., 90-100%)
+- Brier score: `(1/N) * sum((predicted_prob - actual_outcome)^2)`. Lower is better. 0.0 = perfect.
 
-from backend.common.logging import get_logger
+## Accuracy: `backend/prediction/accuracy.py` (Phase 26)
 
-logger = get_logger("MODEL")
+Per-source forecast accuracy metrics by joining WeatherForecast with Settlement.
 
-
-async def check_calibration(city: str, db_session, lookback_days: int = 90) -> dict:
-    """Check how well-calibrated our probability predictions have been.
-
-    Compares predicted bracket probabilities to actual outcomes over
-    the lookback period.
-
-    For example, if we predicted 30% probability for a bracket across
-    100 days, the actual outcome should have landed in that bracket
-    ~30 times. If it landed 45 times, we are under-confident.
-
-    Args:
-        city: City code.
-        db_session: SQLAlchemy async session.
-        lookback_days: Number of days to look back.
-
-    Returns:
-        Dict with calibration metrics:
-        {
-            "city": str,
-            "lookback_days": int,
-            "sample_count": int,
-            "brier_score": float,  # lower is better, 0.0 = perfect
-            "calibration_buckets": [
-                {"predicted_range": "0.0-0.1", "actual_rate": 0.05, "count": 42},
-                ...
-            ]
-        }
-    """
-    # Phase 2: Implement actual calibration check
-    # For now, return a stub indicating no data
-    logger.info("Calibration check requested (not yet implemented)", extra={"data": {
-        "city": city,
-        "lookback_days": lookback_days,
-    }})
-
-    return {
-        "city": city,
-        "lookback_days": lookback_days,
-        "sample_count": 0,
-        "brier_score": None,
-        "calibration_buckets": [],
-        "status": "insufficient_data",
-    }
-```
-
-The Brier score is the standard metric for probability calibration:
-- `Brier = (1/N) * sum((predicted_prob - actual_outcome)^2)`
-- `actual_outcome` is 1 if temp landed in that bracket, 0 otherwise
-- Lower is better. 0.0 = perfect predictions.
+- `get_source_accuracy(city, db_session, lookback_days=90) -> list[SourceAccuracy]`
+  - GROUP BY source → MAE, RMSE, bias
+- `get_forecast_error_trend(city, source, db_session, lookback_days=90) -> ForecastErrorTrend`
+  - Individual (date, error) points + 7-day rolling MAE
 
 ## Summary of Files to Create
 

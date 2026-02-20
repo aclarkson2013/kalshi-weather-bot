@@ -30,7 +30,7 @@ backend/
 │   └── metrics.py       → Centralized Prometheus metric definitions (counters, histograms, gauges)
 ├── weather/             → Agent 1: Weather data pipeline
 ├── kalshi/              → Agent 2: Kalshi API client (auth, orders, markets, WS feed, cache)
-├── prediction/          → Agent 3: Prediction engine (ensemble + XGBoost ML + brackets)
+├── prediction/          → Agent 3: Prediction engine (ensemble + XGBoost ML + brackets + accuracy tracking)
 ├── trading/             → Agent 4: Trading engine
 ├── backtesting/         → Backtesting engine (sync simulation, reuses trading pure functions)
 │   ├── schemas.py       → BacktestConfig, BacktestResult, BacktestDay, SimulatedTrade, CityStats, KellyStats

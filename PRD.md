@@ -3,7 +3,7 @@
 
 **Version:** 1.2
 **Date:** February 19, 2026
-**Status:** MVP Complete + Phase 2 features in progress (25 phases, 1190 tests)
+**Status:** MVP Complete + Phase 2 features in progress (26 phases, 1244 tests)
 
 ---
 
@@ -497,7 +497,7 @@ Your Machine (homelab / cloud VPS)
 - [ ] **Multiple model ensemble** - Combine statistical + ML models with weighted voting
 - [x] **Kelly Criterion position sizing** - Optimal bet sizing based on edge and bankroll (Phase 24)
 - [x] **Backtesting module** - Test strategy against historical data (Phase 25)
-- [ ] **Historical forecast accuracy tracking** - Monitor model calibration over time
+- [x] **Historical forecast accuracy tracking** - Monitor model calibration over time (Phase 26)
 
 #### P2 - Nice to Have
 - [ ] **Additional market plugins** - Precipitation, snowfall, low temperature
@@ -535,7 +535,8 @@ Your Machine (homelab / cloud VPS)
 | 23 | XGBoost ML model | 21-feature regression, ensemble blend, training pipeline, Celery task, graceful fallback | 62 |
 | 24 | Kelly Criterion sizing | Fractional Kelly (0.25×), fee-adjusted, wired into ev_calculator + scheduler, Prometheus metrics | 18 |
 | 25 | Backtesting module | Day-by-day simulation engine, synthetic prices, in-memory risk sim, metrics (Sharpe/drawdown/ROI), Kelly comparison, API endpoint | 95 |
-| **Total** | | **1080 backend + 110 frontend = 1190 tests** | |
+| 26 | Forecast accuracy tracking | Brier score calibration, per-source MAE/RMSE/bias, error trends, 3 API endpoints | 54 |
+| **Total** | | **1134 backend + 110 frontend = 1244 tests** | |
 
 ---
 

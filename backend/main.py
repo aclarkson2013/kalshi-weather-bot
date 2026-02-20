@@ -18,6 +18,7 @@ from prometheus_client import make_asgi_app as make_metrics_app
 from sqlalchemy import text
 from starlette.middleware.gzip import GZipMiddleware
 
+from backend.api.accuracy import router as accuracy_router
 from backend.api.auth import router as auth_router
 from backend.api.backtest import router as backtest_router
 from backend.api.dashboard import router as dashboard_router
@@ -257,6 +258,7 @@ def create_app() -> FastAPI:
     app.include_router(performance_router, prefix="/api/performance", tags=["performance"])
     app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
     app.include_router(backtest_router, prefix="/api/backtest", tags=["backtest"])
+    app.include_router(accuracy_router, prefix="/api/accuracy", tags=["accuracy"])
     app.include_router(ws_router, tags=["websocket"])
 
     logger.info("App started", extra={"data": {"version": "0.1.0"}})

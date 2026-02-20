@@ -98,6 +98,60 @@ class PerformanceData(BaseModel):
     accuracy_over_time: list[AccuracyPoint]
 
 
+class CalibrationBucket(BaseModel):
+    """A single calibration bucket — predicted probability bin vs actual outcome rate."""
+
+    bin_start: float
+    bin_end: float
+    predicted_avg: float
+    actual_rate: float
+    sample_count: int
+
+
+class CalibrationReport(BaseModel):
+    """Calibration report for a city's bracket predictions."""
+
+    city: str
+    lookback_days: int
+    sample_count: int
+    brier_score: float | None
+    calibration_buckets: list[CalibrationBucket]
+    status: str  # "ok" or "insufficient_data"
+
+
+class SourceAccuracy(BaseModel):
+    """Per-source forecast accuracy metrics (forecast vs settlement)."""
+
+    source: str
+    sample_count: int
+    mae_f: float
+    rmse_f: float
+    bias_f: float
+
+
+class ForecastErrorPoint(BaseModel):
+    """A single point on the forecast error trend line."""
+
+    date: str
+    error_f: float
+
+
+class ForecastErrorTrend(BaseModel):
+    """Time series of forecast errors for a source/city combination."""
+
+    city: str
+    source: str
+    points: list[ForecastErrorPoint]
+    rolling_mae: float | None
+
+
+class AccuracyOverview(BaseModel):
+    """Combined accuracy overview — sources + calibration."""
+
+    sources: list[SourceAccuracy]
+    calibration: CalibrationReport
+
+
 class SettingsUpdate(BaseModel):
     """Partial update for user settings -- all fields optional."""
 
