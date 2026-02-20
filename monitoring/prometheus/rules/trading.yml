@@ -1,0 +1,42 @@
+# Trading alerting rules for Boz Weather Trader.
+#
+# Monitors risk blocks, trade execution gaps, and cycle errors.
+
+groups:
+  - name: trading
+    rules:
+      # Many risk blocks in a short window
+      - alert: RiskBlocksHigh
+        expr: increase(trades_risk_blocked_total[15m]) > 5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of risk-blocked trades"
+          description: >
+            More than 5 trades were blocked by the risk manager in the
+            last 15 minutes. Check risk limits and market conditions.
+
+      # No trades executed in 2 hours (possible data/market issue)
+      - alert: NoTradesExecuted
+        expr: increase(trades_executed_total[2h]) == 0
+        for: 2h
+        labels:
+          severity: info
+        annotations:
+          summary: "No trades executed in 2 hours"
+          description: >
+            No trades have been executed in the last 2 hours. This may
+            indicate no +EV opportunities, or a data pipeline issue.
+
+      # Multiple trading cycle errors
+      - alert: TradingCycleErrors
+        expr: increase(trading_cycles_total{outcome="error"}[15m]) > 2
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple trading cycle errors"
+          description: >
+            More than 2 trading cycles have errored in the last
+            15 minutes. The trading engine may be misconfigured.

@@ -29,16 +29,31 @@ backend/
 │   ├── middleware.py    → Production middleware (request ID, logging, Prometheus, security headers)
 │   └── metrics.py       → Centralized Prometheus metric definitions (counters, histograms, gauges)
 ├── weather/             → Agent 1: Weather data pipeline
-├── kalshi/              → Agent 2: Kalshi API client
+├── kalshi/              → Agent 2: Kalshi API client (auth, orders, markets, WS feed, cache)
 ├── prediction/          → Agent 3: Prediction engine
 ├── trading/             → Agent 4: Trading engine
+├── websocket/           → Real-time event streaming (Redis pub/sub → WebSocket → browser)
+│   ├── events.py        → WebSocketEvent model, publish_event() async + publish_event_sync() wrapper
+│   ├── manager.py       → ConnectionManager singleton (tracks WS connections, broadcasts)
+│   ├── subscriber.py    → redis_subscriber() — asyncio task bridging Redis pub/sub → manager
+│   └── router.py        → FastAPI WebSocket endpoint at /ws
 └── api/                 → FastAPI route handlers (auth, dashboard, settings, trades, etc.)
 ```
 
 ### Monitoring (sibling directory)
 ```
 monitoring/
-├── prometheus/prometheus.yml     → Scrape config (backend:8000/metrics/ every 15s)
+├── prometheus/
+│   ├── prometheus.yml            → Scrape config, rule_files, alertmanager target
+│   └── rules/                    → Alert rule YAML files (17 rules, 6 groups)
+│       ├── http.yml              → HighErrorRate, SlowResponses, HighConcurrency
+│       ├── celery.yml            → TaskFailureRateHigh, TaskDurationHigh, TradingCycleMissing
+│       ├── trading.yml           → RiskBlocksHigh, NoTradesExecuted, TradingCycleErrors
+│       ├── weather.yml           → FetchFailureRateHigh, NoWeatherFetches, AllSourcesFailing
+│       ├── targets.yml           → BackendDown, WebSocketNoConnections
+│       └── kalshi_ws.yml         → KalshiWSFeedDisconnected, KalshiWSFeedStalled, KalshiWSReconnectsHigh
+├── alertmanager/
+│   └── alertmanager.yml          → Webhook routing, severity-based repeat, inhibit rules
 └── grafana/
     ├── provisioning/             → Auto-provisioned datasources + dashboard provider
     └── dashboards/               → API Overview + Trading & Weather dashboard JSON

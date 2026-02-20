@@ -24,9 +24,11 @@ frontend/
 │   ├── trade-card/         → Trade display with post-mortem expandable
 │   └── bracket-view/       → Visual bracket probability display
 ├── lib/                    → Utilities, API client, types
-│   ├── api.ts              → Backend API client (fetch wrapper)
+│   ├── api.ts              → Backend API client (fetch wrapper) + getWsUrl() helper
 │   ├── types.ts            → TypeScript types matching backend schemas
 │   ├── hooks.ts            → SWR data fetching hooks
+│   ├── websocket-types.ts  → WebSocket event types + EVENT_TO_SWR_KEYS mapping
+│   ├── websocket.ts        → useWebSocket() hook, WebSocketProvider, exponential backoff reconnection
 │   ├── notifications.ts    → Web Push notification helpers
 │   └── utils.ts            → Formatting, date helpers
 ├── public/
@@ -650,6 +652,23 @@ export function usePerformance() {
 | `useSettings`     | none      | Only changes when user edits                 |
 | `useLogs`         | 2s        | Near-real-time log streaming                 |
 | `usePerformance`  | none      | Historical aggregate, refresh on demand      |
+
+### WebSocket Real-Time Updates
+
+In addition to SWR polling, a WebSocket connection (`useWebSocket()` hook) receives real-time events from the backend and triggers SWR cache revalidation via `mutate()`. This gives near-instant UI updates while SWR remains the data layer. If the WebSocket disconnects, SWR polling continues as fallback.
+
+**Event → SWR Key Mapping:**
+
+| Event | SWR Keys Revalidated |
+|-------|---------------------|
+| `trade.executed` | `/api/dashboard`, `/api/trades` |
+| `trade.queued` | `/api/queue`, `/api/dashboard` |
+| `trade.settled` | `/api/dashboard`, `/api/trades`, `/api/performance` |
+| `trade.expired` | `/api/queue` |
+| `dashboard.update` | `/api/dashboard` |
+| `prediction.updated` | `/api/markets` |
+
+The `WebSocketProvider` wraps the app in `components/providers.tsx` (client boundary) and is integrated in `app/layout.tsx`. The desktop sidebar shows a green/gray connection indicator dot.
 
 ---
 

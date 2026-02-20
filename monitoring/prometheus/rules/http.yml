@@ -1,0 +1,47 @@
+# HTTP alerting rules for Boz Weather Trader.
+#
+# Monitors API error rates, latency, and concurrency.
+
+groups:
+  - name: http
+    rules:
+      # 5xx error rate exceeds 5% for 5 minutes
+      - alert: HighErrorRate
+        expr: >
+          rate(http_requests_total{status_code=~"5.."}[5m])
+          / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error rate above 5%"
+          description: >
+            The backend is returning server errors at a rate above 5%
+            over the last 5 minutes.
+
+      # p95 latency over 2 seconds for 10 minutes
+      - alert: SlowResponses
+        expr: >
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP p95 latency above 2 seconds"
+          description: >
+            The 95th percentile request latency has exceeded 2 seconds
+            for the last 10 minutes.
+
+      # Too many in-flight requests
+      - alert: HighConcurrency
+        expr: http_requests_in_progress > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of in-flight HTTP requests"
+          description: >
+            More than 50 HTTP requests are currently in progress,
+            suggesting the backend may be overloaded.

@@ -1,9 +1,9 @@
 # Product Requirements Document (PRD)
 # Boz Weather Trader
 
-**Version:** 0.5
-**Date:** February 17, 2026
-**Status:** Draft - In Review
+**Version:** 1.0
+**Date:** February 19, 2026
+**Status:** MVP Complete — Phase 1 shipped (20 phases, 944 tests)
 
 ---
 
@@ -462,34 +462,35 @@ Your Machine (homelab / cloud VPS)
 ### 4.1 MVP (Phase 1)
 
 #### P0 - Must Have
-- [ ] **Guided onboarding flow** - Step-by-step walkthrough to generate RSA keys on Kalshi and connect account (see Section 3.5)
-- [ ] **RSA API key validation & encrypted storage** - Validate key pair against Kalshi API, store private key AES-256 encrypted, never handle user passwords
-- [ ] **Weather data pipeline** - Automated fetching from NWS API + Open-Meteo on a schedule
-- [ ] **Basic prediction model** - Ensemble of NWS forecast + Open-Meteo models to generate bracket probabilities
-- [ ] **EV calculation engine** - Compare model probabilities to market prices, identify +EV trades
-- [ ] **Trading mode toggle** - User chooses Full Auto or Manual Approval mode
-- [ ] **Automated trade execution** (Full Auto mode) - Place limit orders on Kalshi when EV threshold is met
-- [ ] **Trade approval queue** (Manual mode) - Queue trades for user review with push notification
-- [ ] **Basic PWA dashboard** - Show active markets, model predictions, current positions, P&L
-- [ ] **Risk controls** - Max position size (default $1), daily loss limit, min EV threshold, adjustable cooldown periods
-- [ ] **Trade logging** - Full audit trail of every trade placed with reasoning
-- [ ] **Trade post-mortems** - Auto-generated executive summary for each trade after settlement (see Section 3.6)
-- [ ] **Structured logging** - Module-tagged, leveled logs to stdout + database (see Section 8.3)
-- [ ] **Unit + safety tests** - Every module ships with tests; safety tests for risk limits, key security, stale data (see Section 8)
-- [ ] **CI/CD pipeline** - GitHub Actions: lint, unit tests, integration tests, coverage checks on every push
-- [ ] **Docker Compose deployment** - One-command self-hosted setup
-- [ ] **Market type selector UI** - High Temp active, others show "Coming Soon"
+- [x] **Guided onboarding flow** - Step-by-step walkthrough to generate RSA keys on Kalshi and connect account (Phase 17)
+- [x] **RSA API key validation & encrypted storage** - Validate key pair against Kalshi API, store private key AES-256 encrypted (Phase 2, 15)
+- [x] **Weather data pipeline** - Automated fetching from NWS API + Open-Meteo on a schedule (Phase 2)
+- [x] **Basic prediction model** - Ensemble of NWS forecast + Open-Meteo models to generate bracket probabilities (Phase 3)
+- [x] **EV calculation engine** - Compare model probabilities to market prices, identify +EV trades (Phase 3)
+- [x] **Trading mode toggle** - User chooses Full Auto or Manual Approval mode (Phase 4)
+- [x] **Automated trade execution** (Full Auto mode) - Place limit orders on Kalshi when EV threshold is met (Phase 3)
+- [x] **Trade approval queue** (Manual mode) - Queue trades for user review with push notification (Phase 3, 5)
+- [x] **Basic PWA dashboard** - Show active markets, model predictions, current positions, P&L (Phase 5)
+- [x] **Risk controls** - Max position size, daily loss limit, min EV threshold, adjustable cooldown periods (Phase 3)
+- [x] **Trade logging** - Full audit trail of every trade placed with reasoning (Phase 4)
+- [x] **Trade post-mortems** - Auto-generated executive summary for each trade after settlement (Phase 3, 14)
+- [x] **Structured logging** - Module-tagged, leveled logs to stdout + database (Phase 1)
+- [x] **Unit + safety tests** - Every module ships with tests; 834 backend + 110 frontend = 944 tests (All phases)
+- [x] **CI/CD pipeline** - GitHub Actions: 3 parallel jobs (lint, test, frontend) (Phase 8)
+- [x] **Docker Compose deployment** - 9-service Docker Compose (backend, frontend, postgres, redis, celery worker/beat, prometheus, grafana, alertmanager) (Phase 6, 16, 19)
+- [x] **Market type selector UI** - High Temp active, others show "Coming Soon" (Phase 5)
+- [x] **Demo mode** - Safe demo/production toggle, new users start in demo mode (Phase 15, 17)
 
 #### P1 - Should Have
-- [ ] **Multi-city support** - Trade all 4 cities (NYC, Chicago, Miami, Austin) simultaneously
-- [ ] **Real-time price updates** - WebSocket connection to Kalshi for live orderbook data
-- [ ] **Push notifications** - Web push for trade executions, settlements, alerts
-- [ ] **Performance analytics** - Cumulative P&L charts, win rate, ROI per city
-- [ ] **PWA install prompt** - Encourage users to add to home screen
-- [ ] **Log viewer in dashboard** - Real-time log streaming with filters by module/level/time
+- [x] **Multi-city support** - Trade all 4 cities (NYC, Chicago, Miami, Austin) simultaneously (Phase 2 — active_cities in user settings)
+- [x] **Real-time price updates** - WebSocket connection to Kalshi for live orderbook data + Redis cache (Phase 18, 20)
+- [x] **Push notifications** - Web push for trade executions, settlements, alerts (Phase 3 — NotificationService)
+- [x] **Performance analytics** - Cumulative P&L charts, win rate, ROI per city (Phase 5 — performance page + charts)
+- [x] **PWA install prompt** - Installable via manifest.json + next-pwa service worker (Phase 5)
+- [x] **Log viewer in dashboard** - Filterable log viewer with module/level/time filters (Phase 5)
 - [ ] **One-click cloud deploy** - Railway / Fly.io / Oracle Cloud deploy guides in README
 
-### 4.2 Phase 2 (Post-MVP)
+### 4.2 Phase 2 (Post-MVP) — Not Yet Started
 
 #### P1 - Should Have
 - [ ] **XGBoost ML model** - Trained on historical data for improved predictions
@@ -504,6 +505,32 @@ Your Machine (homelab / cloud VPS)
 - [ ] **Webhook integrations** - Discord/Slack notifications
 - [ ] **Social/leaderboard** - Compare performance with other users (opt-in)
 - [ ] **Native mobile wrapper** - React Native shell if PWA demand warrants it
+
+### 4.3 Implementation Phases (Complete Log)
+
+| Phase | What | Key Deliverables | Tests Added |
+|-------|------|-----------------|-------------|
+| 1 | Scaffolding + Common | Project structure, schemas, config, DB, logging, encryption | — |
+| 2 | Weather + Kalshi clients | NWS, Open-Meteo, Kalshi REST/WS, auth, markets, rate limiters | — |
+| 3 | Prediction + Trading engines | Ensemble, brackets, EV calc, risk manager, cooldowns, trade queue, executor | — |
+| 4 | REST API (FastAPI) | 10 API routers, dependency injection, response schemas | — |
+| 5 | Frontend PWA (Next.js 14) | Dashboard, onboarding, markets, queue, trades, logs, performance, settings | 110 |
+| 6 | Docker Compose | 6 services (backend, frontend, postgres, redis, celery worker/beat) | — |
+| 7 | Celery scheduler tests | Trading cycle, settlement, trade expiry task tests | 51 |
+| 8 | GitHub Actions CI/CD | 3 parallel jobs: backend-lint, backend-test, frontend | — |
+| 9 | Integration tests | Cross-module tests: signal gen, error prop, prediction, risk, settlement, trading cycle | 47 |
+| 10 | Alembic migrations | Initial schema (8 tables) + demo_mode migration | — |
+| 11 | Production hardening | Middleware (request ID, logging, Prometheus, security headers), health checks, task timeouts | — |
+| 12 | Monitoring & Observability | Prometheus metrics (13 metric objects), /metrics endpoint | — |
+| 13 | E2E smoke tests | Real auth path, full middleware stack, 11 test classes | 35 |
+| 14 | NWS CLI Settlement | CLI parser, fetch pipeline, Settlement record creation | — |
+| 15 | Kalshi auth integration | Demo mode toggle, /status endpoint, E2E wiring, migration 0002 | — |
+| 16 | Grafana dashboards | 2 dashboards (18 panels), Prometheus/Grafana/Alertmanager Docker stack | 22 |
+| 17 | Frontend onboarding UI | Demo mode toggle, auth status, connection status components | — |
+| 18 | WebSocket streaming | Redis pub/sub → FastAPI WS → browser, SWR revalidation, 3 WS metrics | 35 |
+| 19 | Prometheus alerting | 14 alert rules, 5 groups, Alertmanager webhook routing, inhibit rules | 56 |
+| 20 | Kalshi WS market feed | Persistent WS feed, Redis price cache, cache-first trading, 3 alert rules | 42 |
+| **Total** | | **834 backend + 110 frontend = 944 tests** | |
 
 ---
 
@@ -812,7 +839,7 @@ Each sub-agent must deliver code WITH passing tests. This is the definition of "
 | Product name | **Boz Weather Trader** | — |
 | Business model | Free, open-source | Lower barrier to entry, community-driven |
 | Platform | PWA (not native iPhone app) | Cross-platform, no App Store hassle, one codebase |
-| Demo mode | Skip | Owner will test with small trades ($1) on live markets |
+| Demo mode | **Implemented** (Phase 15) | New users start in demo mode by default; togglable in settings |
 | Hosting | Docker Compose (self-host) + cloud deploy options (free & paid) | Homelab-friendly + accessible to non-technical users |
 | MVP market scope | High temperature only (4 cities — all Kalshi currently offers) | Best liquidity, clearest pipeline; modular for future expansion |
 | Trading mode | Toggle: Full Auto or Manual Approval | Each user picks their comfort level |

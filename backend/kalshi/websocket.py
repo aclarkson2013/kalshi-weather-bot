@@ -16,7 +16,8 @@ Usage:
     from backend.kalshi.websocket import KalshiWebSocket
 
     auth = KalshiAuth(api_key_id, private_key_pem)
-    ws = KalshiWebSocket(auth)
+    ws = KalshiWebSocket(auth)  # production URL
+    ws = KalshiWebSocket(auth, url=KalshiWebSocket.DEMO_WS_URL)  # demo mode
     await ws.connect()
     await ws.subscribe_orderbook("KXHIGHNY-26FEB18-T52")
 
@@ -49,15 +50,19 @@ class KalshiWebSocket:
 
     Args:
         auth: KalshiAuth instance for signing the WebSocket connection.
+        url: Optional WebSocket URL override (e.g., DEMO_WS_URL for demo mode).
+             Defaults to WS_URL (production) if not provided.
     """
 
     WS_URL = "wss://api.elections.kalshi.com/trade-api/ws/v2"
+    DEMO_WS_URL = "wss://demo-api.kalshi.com/trade-api/ws/v2"
     WS_AUTH_PATH = "/trade-api/ws/v2"
     HEARTBEAT_INTERVAL = 10  # seconds
     MAX_RECONNECT_RETRIES = 5
 
-    def __init__(self, auth: KalshiAuth) -> None:
+    def __init__(self, auth: KalshiAuth, url: str | None = None) -> None:
         self.auth = auth
+        self._url = url or self.WS_URL
         self.ws: websockets.WebSocketClientProtocol | None = None
         self._running: bool = False
         self._subscriptions: list[dict] = []
@@ -77,13 +82,13 @@ class KalshiWebSocket:
 
         try:
             self.ws = await websockets.connect(
-                self.WS_URL,
+                self._url,
                 extra_headers=headers,
             )
         except Exception as exc:
             raise KalshiConnectionError(
                 f"WebSocket connection failed: {exc}",
-                context={"url": self.WS_URL},
+                context={"url": self._url},
             ) from exc
 
         self._running = True
@@ -93,7 +98,7 @@ class KalshiWebSocket:
             self._heartbeat_task.cancel()
         self._heartbeat_task = asyncio.create_task(self._heartbeat())
 
-        logger.info("WebSocket connected", extra={"data": {"url": self.WS_URL}})
+        logger.info("WebSocket connected", extra={"data": {"url": self._url}})
 
     async def subscribe_orderbook(self, ticker: str) -> None:
         """Subscribe to orderbook delta updates for a market ticker.
@@ -278,5 +283,5 @@ class KalshiWebSocket:
 
         raise KalshiConnectionError(
             f"WebSocket reconnection failed after {self.MAX_RECONNECT_RETRIES} attempts",
-            context={"url": self.WS_URL},
+            context={"url": self._url},
         )

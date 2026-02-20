@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     default_cooldown_minutes: int = 60
     default_consecutive_loss_limit: int = 3
 
+    # ─── Kalshi WebSocket Feed ───
+    kalshi_ws_cache_ttl_seconds: int = 120
+    kalshi_ws_refresh_minutes: int = 5
+
     # ─── Celery ───
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"

@@ -8,7 +8,9 @@ This directory contains all tests for Boz Weather Trader. Tests are organized to
 tests/
 ├── conftest.py          → Shared fixtures (database, mock clients, test data)
 ├── factories.py         → Test data factories for generating realistic test data
-├── test_grafana_dashboards.py → Dashboard JSON validation tests (22 tests)
+├── test_alert_rules.py         → Alert rule YAML validation (22 tests across 6 files, 17 rules)
+├── test_alertmanager_config.py → Alertmanager config validation (14 tests)
+├── test_grafana_dashboards.py  → Dashboard JSON validation (13 tests across 2 dashboards)
 ├── fixtures/            → Mock API response JSON files
 │   ├── nws_points_nyc.json
 │   ├── nws_forecast_nyc.json
@@ -17,56 +19,84 @@ tests/
 │   ├── kalshi_orderbook.json
 │   ├── kalshi_order_response.json
 │   └── nws_cli_nyc.json
-├── common/              → Unit tests for backend/common/ (metrics, middleware)
+├── common/              → Unit tests for backend/common/ (109 tests)
+│   ├── test_encryption.py        → AES-256 encrypt/decrypt helpers (8 tests)
+│   ├── test_config.py            → Settings + get_settings config loading (8 tests)
+│   ├── test_logging.py           → Structured logger + secret redaction (13 tests)
+│   ├── test_schemas.py           → All shared Pydantic schemas (21 tests)
+│   ├── test_models.py            → SQLAlchemy ORM models against test DB (9 tests)
+│   ├── test_middleware.py         → Request ID, logging, security headers middleware (19 tests)
 │   ├── test_metrics.py           → Metric definitions, labels, custom buckets (12 tests)
-│   └── test_metrics_middleware.py → PrometheusMiddleware, path normalization (18 tests)
-├── weather/             → Unit tests for backend/weather/
+│   └── test_metrics_middleware.py → PrometheusMiddleware, path normalization (19 tests)
+├── weather/             → Unit tests for backend/weather/ (140 tests)
 │   ├── conftest.py      → Weather-specific fixtures (mock NWS/Open-Meteo responses)
-│   ├── test_nws.py
-│   ├── test_openmeteo.py
-│   ├── test_normalizer.py
-│   ├── test_stations.py
-│   ├── test_scheduler.py
-│   ├── test_cli_parser.py → NWS CLI text parser tests (21 tests)
-│   └── test_cli_fetch.py  → CLI fetch + Settlement record creation tests (16 tests)
-├── kalshi/              → Unit tests for backend/kalshi/
+│   ├── test_normalizer.py → NWS/Open-Meteo → WeatherData conversion + units (30 tests)
+│   ├── test_stations.py   → Station metadata for all 4 cities + temp conversion (25 tests)
+│   ├── test_scheduler.py  → Celery tasks: fetch_all_forecasts + fetch_cli_reports (21 tests)
+│   ├── test_cli_parser.py → NWS CLI text parser for settlement (21 tests)
+│   ├── test_cli_fetch.py  → CLI fetch + Settlement record pipeline (18 tests)
+│   ├── test_nws.py        → fetch_with_retry, grid coordinates, caching (10 tests)
+│   ├── test_openmeteo.py  → Module constants + _extract_model_daily (9 tests)
+│   └── test_rate_limiter.py → Async rate limiter timing + module singletons (6 tests)
+├── kalshi/              → Unit tests for backend/kalshi/ (119 tests)
 │   ├── conftest.py      → Kalshi-specific fixtures (mock API responses, test keys)
-│   ├── test_auth.py
-│   ├── test_client.py
-│   ├── test_markets.py
-│   ├── test_orders.py
-│   ├── test_websocket.py
-│   └── test_rate_limiter.py
-├── prediction/          → Unit tests for backend/prediction/
+│   ├── test_market_feed.py → Market feed consumer lifecycle + auth + messages (25 tests)
+│   ├── test_models.py      → Pydantic models, validators, serialization (23 tests)
+│   ├── test_cache.py       → Redis cache set/get/TTL/status (17 tests)
+│   ├── test_markets.py     → Market discovery, tickers, bracket parsing (15 tests)
+│   ├── test_client.py      → REST wrapper, HTTP status, error mapping (11 tests)
+│   ├── test_auth.py        → RSA signing, header generation (8 tests)
+│   ├── test_orders.py      → Order build + pre-flight validation (8 tests)
+│   ├── test_exceptions.py  → Exception context, formatting, filtering (7 tests)
+│   └── test_rate_limiter.py → Token bucket init, counting, acquire (5 tests)
+├── prediction/          → Unit tests for backend/prediction/ (61 tests)
 │   ├── conftest.py      → Prediction fixtures (sample weather data, bracket configs)
-│   ├── test_ensemble.py
-│   ├── test_brackets.py
-│   ├── test_error_dist.py
-│   ├── test_calibration.py
-│   └── test_postmortem.py
-├── trading/             → Unit tests + safety tests for backend/trading/
+│   ├── test_ensemble.py      → Ensemble forecast + confidence assessment (19 tests)
+│   ├── test_brackets.py      → Normal-CDF bracket probabilities (14 tests)
+│   ├── test_error_dist.py    → Season detection + error std calculation (12 tests)
+│   ├── test_postmortem.py    → Post-mortem narrative generation (8 tests)
+│   ├── test_pipeline.py      → Full prediction pipeline orchestration (5 tests)
+│   └── test_calibration.py   → Calibration stub contract (3 tests)
+├── trading/             → Unit tests + safety tests for backend/trading/ (133 tests)
 │   ├── conftest.py      → Trading fixtures (mock Kalshi client, sample predictions)
-│   ├── test_ev_calculator.py
-│   ├── test_risk_manager.py
-│   ├── test_cooldown.py
-│   ├── test_trade_queue.py
-│   ├── test_executor.py
-│   ├── test_postmortem.py
-│   └── test_safety.py   → CRITICAL: safety tests (risk limits, key security, etc.)
-├── api/                 → API endpoint tests
+│   ├── test_ev_calculator.py      → EV math, fees, bracket scanning (34 tests)
+│   ├── test_scheduler.py          → Celery tasks: trading cycle, expiry, settlement (30 tests)
+│   ├── test_postmortem.py         → Settlement matching, P&L, narratives (13 tests)
+│   ├── test_risk_manager.py       → Risk check ordering + enforcement (12 tests)
+│   ├── test_celery_hardening.py   → Task timeout configs (11 tests)
+│   ├── test_trade_queue.py        → Queue state machine (11 tests)
+│   ├── test_cooldown.py           → Per-loss + consecutive cooldowns (9 tests)
+│   ├── test_executor.py           → Order placement + DB recording (8 tests)
+│   └── test_notifications.py      → Web push via VAPID (5 tests)
+├── api/                 → API endpoint tests (70 tests)
 │   ├── conftest.py      → API fixtures (api_engine, client, mock_kalshi, factories)
-│   ├── test_auth.py     → Auth validate + disconnect tests (5 tests)
-│   └── test_auth_status.py → Auth status, demo mode, onboarding flow (17 tests)
+│   ├── test_auth.py     → Auth validate + disconnect (5 tests)
+│   ├── test_auth_status.py → Auth status, demo mode, onboarding flow (17 tests)
+│   ├── test_dashboard.py   → Dashboard aggregate endpoint (4 tests)
+│   ├── test_health.py      → /health + /ready probes (7 tests)
+│   ├── test_logs.py         → Log viewer endpoint (6 tests)
+│   ├── test_markets.py      → Markets endpoint (5 tests)
+│   ├── test_notifications.py → Push notification subscribe (3 tests)
+│   ├── test_performance.py  → Performance analytics endpoint (5 tests)
+│   ├── test_queue.py        → Trade queue approve/reject/list (8 tests)
+│   ├── test_settings.py     → Settings read/update (5 tests)
+│   └── test_trades.py       → Trade history endpoint (5 tests)
+├── websocket/           → Unit tests for backend/websocket/
+│   ├── test_events.py   → Event model, publish_event, publish_event_sync (13 tests)
+│   ├── test_manager.py  → ConnectionManager connect/disconnect/broadcast (12 tests)
+│   ├── test_subscriber.py → Redis pub/sub subscriber forwarding (6 tests)
+│   └── test_router.py   → WebSocket /ws endpoint (4 tests)
 ├── e2e/                 → End-to-end smoke tests (real auth path, real middleware)
 │   ├── conftest.py      → E2E fixtures (e2e_engine, authed_client, bare_client, seed helpers)
 │   └── test_smoke.py    → 35 smoke tests across 11 test classes
-└── integration/         → Cross-module integration tests
-    ├── conftest.py      → Integration fixtures (Docker test DB, full pipeline setup)
-    ├── test_weather_to_prediction.py
-    ├── test_prediction_to_trading.py
-    ├── test_trading_to_kalshi.py
-    ├── test_risk_controls_e2e.py
-    └── test_simulation.py  → Full pipeline replay with historical data
+└── integration/         → Cross-module integration tests (47 tests)
+    ├── conftest.py      → Integration fixtures (full pipeline setup)
+    ├── test_signal_generation.py     → Prediction validation + bracket scanning (8 tests)
+    ├── test_error_propagation.py     → Bad prediction handling (8 tests)
+    ├── test_prediction_pipeline.py   → Weather → prediction end-to-end (8 tests)
+    ├── test_risk_enforcement.py      → RiskManager + CooldownManager enforcement (8 tests)
+    ├── test_settlement_flow.py       → Settlement win/loss + P&L + post-mortem (7 tests)
+    └── test_trading_cycle.py         → Signal → risk → execute → DB record (8 tests)
 ```
 
 ---
@@ -1083,8 +1113,8 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (696 tests, in-memory SQLite, no Docker needed) | Yes |
-| `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 91 tests) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short` (834 tests, in-memory SQLite, no Docker needed) | Yes |
+| `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 110 tests) | Yes |
 
 **Key design decisions:**
 - No PostgreSQL/Redis services needed — backend tests use in-memory SQLite and mock Redis

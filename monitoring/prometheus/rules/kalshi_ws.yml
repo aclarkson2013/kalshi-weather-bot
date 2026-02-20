@@ -1,0 +1,42 @@
+groups:
+  - name: kalshi_ws
+    rules:
+      # ─── Feed Disconnected ───
+      - alert: KalshiWSFeedDisconnected
+        expr: kalshi_ws_connected == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kalshi WebSocket feed is disconnected"
+          description: >-
+            The Kalshi WebSocket market data feed has been disconnected for
+            more than 5 minutes. The trading cycle will fall back to REST
+            API calls for market prices, which may be slower and consume
+            more rate limit budget.
+
+      # ─── Feed Stalled ───
+      - alert: KalshiWSFeedStalled
+        expr: increase(kalshi_ws_messages_total[2m]) == 0 and kalshi_ws_connected == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kalshi WebSocket feed is connected but not receiving messages"
+          description: >-
+            The Kalshi WebSocket reports as connected but has received zero
+            messages in the last 2 minutes. This may indicate a stale
+            connection or an issue with ticker subscriptions.
+
+      # ─── Excessive Reconnects ───
+      - alert: KalshiWSReconnectsHigh
+        expr: increase(kalshi_ws_reconnects_total[15m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kalshi WebSocket feed is reconnecting too frequently"
+          description: >-
+            The Kalshi WebSocket feed has reconnected more than 3 times in
+            the last 15 minutes. This may indicate network instability,
+            authentication issues, or Kalshi API problems.

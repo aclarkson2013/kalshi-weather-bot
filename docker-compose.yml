@@ -111,6 +111,15 @@ services:
       backend:
         condition: service_healthy
 
+  # ─── Alertmanager (Alert Routing & Delivery) ───
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
   # ─── Prometheus (Metrics Scraper & Store) ───
   prometheus:
     image: prom/prometheus:latest
@@ -119,10 +128,13 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
       - promdata:/prometheus
     depends_on:
       backend:
         condition: service_healthy
+      alertmanager:
+        condition: service_started
 
   # ─── Grafana (Dashboards & Visualization) ───
   grafana:

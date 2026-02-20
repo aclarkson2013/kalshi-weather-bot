@@ -5,7 +5,11 @@ Run with: uvicorn backend.main:app --reload
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import traceback
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,8 +42,37 @@ from backend.kalshi.exceptions import (
     KalshiError,
     KalshiRateLimitError,
 )
+from backend.kalshi.market_feed import market_feed_consumer
+from backend.websocket.manager import manager as ws_manager
+from backend.websocket.router import router as ws_router
+from backend.websocket.subscriber import redis_subscriber
 
 logger = get_logger("SYSTEM")
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage application lifecycle — start/stop background tasks."""
+    # Start the Redis → WebSocket subscriber background task
+    subscriber_task = asyncio.create_task(redis_subscriber(ws_manager))
+    logger.info("WebSocket Redis subscriber started")
+
+    # Start the Kalshi WebSocket market data feed
+    feed_task = asyncio.create_task(market_feed_consumer())
+    logger.info("Kalshi market feed consumer started")
+
+    yield
+
+    # Shutdown: cancel both background tasks
+    feed_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await feed_task
+    logger.info("Kalshi market feed consumer stopped")
+
+    subscriber_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await subscriber_task
+    logger.info("WebSocket Redis subscriber stopped")
 
 
 def create_app() -> FastAPI:
@@ -48,6 +81,7 @@ def create_app() -> FastAPI:
         title="Boz Weather Trader",
         version="0.1.0",
         description="Automated weather prediction market trading bot for Kalshi",
+        lifespan=lifespan,
     )
 
     # CORS — allow frontend origins (dev + Docker)
@@ -219,6 +253,7 @@ def create_app() -> FastAPI:
     app.include_router(logs_router, prefix="/api/logs", tags=["logs"])
     app.include_router(performance_router, prefix="/api/performance", tags=["performance"])
     app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
+    app.include_router(ws_router, tags=["websocket"])
 
     logger.info("App started", extra={"data": {"version": "0.1.0"}})
 

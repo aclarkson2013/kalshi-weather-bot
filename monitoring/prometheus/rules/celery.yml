@@ -1,0 +1,47 @@
+# Celery task alerting rules for Boz Weather Trader.
+#
+# Monitors task failure rates, duration, and schedule gaps.
+
+groups:
+  - name: celery
+    rules:
+      # Task failure rate exceeds 10% over 15 minutes
+      - alert: TaskFailureRateHigh
+        expr: >
+          rate(celery_task_total{status="failure"}[15m])
+          / rate(celery_task_total[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery task failure rate above 10%"
+          description: >
+            More than 10% of Celery tasks are failing over the last
+            15 minutes. Check worker logs for exceptions.
+
+      # p95 task duration exceeds 2 minutes
+      - alert: TaskDurationHigh
+        expr: >
+          histogram_quantile(0.95,
+            rate(celery_task_duration_seconds_bucket[15m])
+          ) > 120
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery task p95 duration above 2 minutes"
+          description: >
+            The 95th percentile Celery task duration exceeds 2 minutes.
+            Tasks may be timing out or blocked on external APIs.
+
+      # No trading_cycle runs in 30 minutes (scheduled every 15m)
+      - alert: TradingCycleMissing
+        expr: increase(celery_task_total{task_name="trading_cycle"}[30m]) == 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Trading cycle has not run in 30 minutes"
+          description: >
+            The trading_cycle task is scheduled every 15 minutes but
+            has not run in the last 30 minutes. Celery Beat may be down.

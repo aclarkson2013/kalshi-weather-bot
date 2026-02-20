@@ -10,6 +10,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useWebSocketStatus } from "@/lib/websocket";
+
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/markets", label: "Markets", icon: TrendingUp },
@@ -20,6 +22,7 @@ const NAV_ITEMS = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { isConnected } = useWebSocketStatus();
 
   // Hide nav on onboarding page
   if (pathname === "/onboarding") return null;
@@ -60,6 +63,12 @@ export default function BottomNav() {
           <h1 className="text-lg font-bold text-boz-primary">
             Boz Weather Trader
           </h1>
+          <span
+            className={`ml-2 h-2 w-2 rounded-full ${
+              isConnected ? "bg-green-500" : "bg-gray-400"
+            }`}
+            title={isConnected ? "Live" : "Disconnected"}
+          />
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {NAV_ITEMS.map((item) => {

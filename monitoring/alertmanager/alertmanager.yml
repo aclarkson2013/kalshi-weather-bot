@@ -1,0 +1,36 @@
+# Alertmanager configuration for Boz Weather Trader.
+#
+# Routes alerts by severity and delivers via webhook to the backend API.
+# The backend can then log, store, or push-notify the user.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "webhook-backend"
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts repeat more frequently
+    - match:
+        severity: critical
+      receiver: "webhook-backend"
+      repeat_interval: 1h
+
+receivers:
+  - name: "webhook-backend"
+    webhook_configs:
+      - url: "http://backend:8000/api/alerts"
+        send_resolved: true
+
+inhibit_rules:
+  # If a critical alert fires for a given alertname, suppress the
+  # corresponding warning-level alert to prevent alert floods.
+  - source_match:
+      severity: "critical"
+    target_match:
+      severity: "warning"
+    equal: ["alertname"]

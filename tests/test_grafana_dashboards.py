@@ -28,6 +28,13 @@ KNOWN_METRICS = {
     "trading_cycles_total",
     "trades_executed_total",
     "trades_risk_blocked_total",
+    "ws_connections_active",
+    "ws_messages_sent_total",
+    "ws_events_received_total",
+    "kalshi_ws_connected",
+    "kalshi_ws_messages_total",
+    "kalshi_ws_reconnects_total",
+    "kalshi_ws_cache_hits_total",
     "weather_fetches_total",
 }
 

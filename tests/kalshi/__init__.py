@@ -1,1 +1,1 @@
-"""Tests for the backend.kalshi module — Kalshi API client, auth, markets, orders."""
+"""Tests for the Kalshi API client module."""

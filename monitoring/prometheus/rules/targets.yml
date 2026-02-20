@@ -1,0 +1,30 @@
+# Infrastructure target alerting rules for Boz Weather Trader.
+#
+# Monitors scrape target availability and WebSocket connectivity.
+
+groups:
+  - name: targets
+    rules:
+      # Backend is unreachable by Prometheus
+      - alert: BackendDown
+        expr: up{job="boz-weather-trader"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend is down"
+          description: >
+            Prometheus cannot scrape the backend /metrics endpoint.
+            The FastAPI server may have crashed or be unreachable.
+
+      # No WebSocket clients connected for 30 minutes
+      - alert: WebSocketNoConnections
+        expr: ws_connections_active == 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "No WebSocket clients connected"
+          description: >
+            No browser clients have been connected via WebSocket for
+            the last 30 minutes. The frontend may not be running.

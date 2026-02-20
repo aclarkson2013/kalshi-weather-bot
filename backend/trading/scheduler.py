@@ -32,6 +32,7 @@ from backend.common.metrics import (
     TRADES_RISK_BLOCKED_TOTAL,
     TRADING_CYCLES_TOTAL,
 )
+from backend.websocket.events import publish_event_sync
 
 logger = get_logger("TRADING")
 ET = ZoneInfo("America/New_York")
@@ -111,6 +112,8 @@ def check_pending_trades() -> dict:
 
     try:
         count = async_to_sync(_expire_pending_trades)()
+        if count > 0:
+            publish_event_sync("trade.expired", {"count": count})
     except Exception as exc:
         logger.error(
             "Pending trade check failed",
@@ -332,6 +335,14 @@ async def _run_trading_cycle() -> None:
                 if user_settings.trading_mode == "auto":
                     await execute_trade(signal, kalshi_client, session, user_id)
                     TRADES_EXECUTED_TOTAL.labels(mode="auto", city=signal.city).inc()
+                    publish_event_sync(
+                        "trade.executed",
+                        {
+                            "city": signal.city,
+                            "bracket": signal.bracket,
+                            "side": signal.side,
+                        },
+                    )
                 else:
                     notification_svc = await _get_notification_service(session, user_id)
                     await queue_trade(
@@ -342,6 +353,14 @@ async def _run_trading_cycle() -> None:
                         notification_svc,
                     )
                     TRADES_EXECUTED_TOTAL.labels(mode="queued", city=signal.city).inc()
+                    publish_event_sync(
+                        "trade.queued",
+                        {
+                            "city": signal.city,
+                            "bracket": signal.bracket,
+                            "side": signal.side,
+                        },
+                    )
 
         await session.commit()
 
@@ -422,6 +441,9 @@ async def _settle_and_postmortem() -> None:
                     await cm.on_trade_loss()
 
         await session.commit()
+
+        if settled_count > 0:
+            publish_event_sync("trade.settled", {"settled_count": settled_count})
 
         logger.info(
             "Settlement cycle complete",
@@ -644,6 +666,9 @@ async def _fetch_latest_predictions(db, cities: list[str]) -> list:
 async def _fetch_market_prices(kalshi_client, city: str, target_date) -> dict[str, int]:
     """Fetch current market prices from Kalshi for a city's brackets.
 
+    Tries the Redis cache first (populated by the Kalshi WebSocket feed).
+    Falls back to the REST API if the cache is empty or stale.
+
     Args:
         kalshi_client: Authenticated KalshiClient.
         city: City code (e.g., "NYC").
@@ -652,12 +677,42 @@ async def _fetch_market_prices(kalshi_client, city: str, target_date) -> dict[st
     Returns:
         Dict mapping bracket label to YES price in cents.
     """
+    from backend.common.metrics import KALSHI_WS_CACHE_HITS_TOTAL
     from backend.kalshi.markets import WEATHER_SERIES_TICKERS, parse_bracket_from_market
 
     try:
         series = WEATHER_SERIES_TICKERS.get(city)
         if series is None:
             return {}
+
+        # Try Redis cache first (WebSocket feed populates this)
+        try:
+            from backend.kalshi.cache import get_city_prices, get_redis_client
+
+            redis = await get_redis_client()
+            try:
+                cache_date_str = (
+                    target_date.strftime("%y%m%d")
+                    if hasattr(target_date, "strftime")
+                    else str(target_date)
+                )
+                cached = await get_city_prices(redis, city, cache_date_str)
+                if cached is not None:
+                    prices, _tickers = cached
+                    if prices:
+                        KALSHI_WS_CACHE_HITS_TOTAL.labels(source="cache").inc()
+                        logger.debug(
+                            "Market prices served from cache",
+                            extra={"data": {"city": city, "brackets": len(prices)}},
+                        )
+                        return prices
+            finally:
+                await redis.aclose()
+        except Exception:
+            pass  # Cache miss or error — fall through to REST
+
+        # REST fallback
+        KALSHI_WS_CACHE_HITS_TOTAL.labels(source="rest_fallback").inc()
 
         # Build event ticker
         if hasattr(target_date, "strftime"):
@@ -692,6 +747,9 @@ async def _fetch_market_prices(kalshi_client, city: str, target_date) -> dict[st
 async def _fetch_market_tickers(kalshi_client, city: str, target_date) -> dict[str, str]:
     """Fetch market ticker mapping from Kalshi for a city's brackets.
 
+    Tries the Redis cache first (populated by the Kalshi WebSocket feed).
+    Falls back to the REST API if the cache is empty or stale.
+
     Args:
         kalshi_client: Authenticated KalshiClient.
         city: City code (e.g., "NYC").
@@ -700,12 +758,42 @@ async def _fetch_market_tickers(kalshi_client, city: str, target_date) -> dict[s
     Returns:
         Dict mapping bracket label to market ticker string.
     """
+    from backend.common.metrics import KALSHI_WS_CACHE_HITS_TOTAL
     from backend.kalshi.markets import WEATHER_SERIES_TICKERS, parse_bracket_from_market
 
     try:
         series = WEATHER_SERIES_TICKERS.get(city)
         if series is None:
             return {}
+
+        # Try Redis cache first (WebSocket feed populates this)
+        try:
+            from backend.kalshi.cache import get_city_prices, get_redis_client
+
+            redis = await get_redis_client()
+            try:
+                cache_date_str = (
+                    target_date.strftime("%y%m%d")
+                    if hasattr(target_date, "strftime")
+                    else str(target_date)
+                )
+                cached = await get_city_prices(redis, city, cache_date_str)
+                if cached is not None:
+                    _prices, tickers = cached
+                    if tickers:
+                        KALSHI_WS_CACHE_HITS_TOTAL.labels(source="cache").inc()
+                        logger.debug(
+                            "Market tickers served from cache",
+                            extra={"data": {"city": city, "tickers": len(tickers)}},
+                        )
+                        return tickers
+            finally:
+                await redis.aclose()
+        except Exception:
+            pass  # Cache miss or error — fall through to REST
+
+        # REST fallback
+        KALSHI_WS_CACHE_HITS_TOTAL.labels(source="rest_fallback").inc()
 
         if hasattr(target_date, "strftime"):
             date_str = target_date.strftime("%y%b%d").upper()

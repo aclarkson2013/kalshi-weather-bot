@@ -1,0 +1,46 @@
+# Weather data pipeline alerting rules for Boz Weather Trader.
+#
+# Monitors fetch failures, missing fetches, and total source outages.
+
+groups:
+  - name: weather
+    rules:
+      # Over 30% of weather fetches failing
+      - alert: FetchFailureRateHigh
+        expr: >
+          increase(weather_fetches_total{outcome="error"}[1h])
+          / increase(weather_fetches_total[1h]) > 0.3
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Weather fetch failure rate above 30%"
+          description: >
+            More than 30% of weather data fetches have failed in the
+            last hour. Some forecast sources may be degraded.
+
+      # No weather fetches at all in 1 hour (scheduled every 30m)
+      - alert: NoWeatherFetches
+        expr: increase(weather_fetches_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "No weather fetches in 1 hour"
+          description: >
+            No weather data fetches have been attempted in the last
+            hour. The fetch_all_forecasts Celery task may not be running.
+
+      # Fetches are attempted but all fail
+      - alert: AllSourcesFailing
+        expr: >
+          increase(weather_fetches_total{outcome="success"}[1h]) == 0
+          and increase(weather_fetches_total{outcome="error"}[1h]) > 0
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "All weather data sources are failing"
+          description: >
+            Weather fetch attempts are being made but none are
+            succeeding. Both NWS and Open-Meteo may be unreachable.

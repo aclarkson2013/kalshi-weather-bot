@@ -23,6 +23,16 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// ─── WebSocket URL ───
+
+/**
+ * Derive the WebSocket URL from the REST API URL.
+ * Converts http: → ws: and https: → wss:, then appends /ws.
+ */
+export function getWsUrl(): string {
+  return API_URL.replace(/^http/, "ws") + "/ws";
+}
+
 // ─── Fetch Wrapper ───
 
 class ApiError extends Error {

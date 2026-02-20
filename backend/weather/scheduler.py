@@ -26,6 +26,7 @@ from backend.weather.cli_parser import parse_cli_text
 from backend.weather.nws import fetch_nws_cli, fetch_nws_forecast, fetch_nws_gridpoint
 from backend.weather.openmeteo import fetch_openmeteo_forecast
 from backend.weather.stations import VALID_CITIES
+from backend.websocket.events import publish_event_sync
 
 logger = get_logger("WEATHER")
 
@@ -319,6 +320,8 @@ def fetch_all_forecasts(self) -> dict:
         raise self.retry(exc=exc) from exc
 
     elapsed = (datetime.now(UTC) - start_time).total_seconds()
+
+    publish_event_sync("prediction.updated", {"cities": VALID_CITIES})
 
     logger.info(
         "Forecast fetch cycle completed",

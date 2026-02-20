@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getWsUrl } from "@/lib/api";
+
 // Mock window.location
 const mockLocation = { href: "" };
 Object.defineProperty(window, "location", {
@@ -128,5 +130,20 @@ describe("API client", () => {
 
     const { fetchDashboard } = await import("@/lib/api");
     await expect(fetchDashboard()).rejects.toThrow("Network failure");
+  });
+});
+
+describe("getWsUrl", () => {
+  it("converts http to ws and appends /ws", () => {
+    // Default API_URL is http://localhost:8000
+    expect(getWsUrl()).toBe("ws://localhost:8000/ws");
+  });
+
+  it("returns a URL ending with /ws", () => {
+    expect(getWsUrl()).toMatch(/\/ws$/);
+  });
+
+  it("starts with ws:// protocol", () => {
+    expect(getWsUrl()).toMatch(/^ws:\/\//);
   });
 });

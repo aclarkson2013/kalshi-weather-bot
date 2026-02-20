@@ -11,26 +11,33 @@ Boz Weather Trader is a free, open-source automated trading bot for Kalshi weath
 ```
 frontend/          → Next.js PWA (dashboard, onboarding, trade queue)
 backend/
-  ├── main.py      → FastAPI app entry point, /metrics endpoint, middleware stack
+  ├── main.py      → FastAPI app entry point, /metrics endpoint, middleware stack, WebSocket lifespan
   ├── celery_app.py → Celery config, beat schedule, task signal instrumentation
   ├── weather/     → Agent 1: NWS + Open-Meteo data pipeline
-  ├── kalshi/      → Agent 2: Kalshi API client (auth, orders, markets)
+  ├── kalshi/      → Agent 2: Kalshi API client (auth, orders, markets, WS feed, Redis cache)
   ├── prediction/  → Agent 3: Statistical ensemble + bracket probabilities
   ├── trading/     → Agent 4: EV calculator, risk controls, trade queue
+  ├── websocket/   → Real-time event push (Redis pub/sub → WebSocket → SWR revalidation)
   └── common/      → Shared schemas, config, database, logging, middleware, metrics
 monitoring/
-  ├── prometheus/  → Prometheus scrape config (scrapes backend:8000/metrics/)
+  ├── prometheus/  → Prometheus scrape config + alerting rules
+  │   ├── prometheus.yml   → Scrape config, rule_files, alertmanager target
+  │   └── rules/           → 6 alert rule YAML files (17 rules across http, celery, trading, weather, targets, kalshi_ws)
+  ├── alertmanager/        → Alertmanager config (webhook routing, severity-based repeat, inhibit rules)
   └── grafana/     → Grafana provisioning + dashboard JSON files
       ├── provisioning/  → Auto-provisioned datasources + dashboard provider
       └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels)
-tests/
-  ├── common/      → Unit tests for shared modules (metrics, middleware)
-  ├── weather/     → Unit tests for weather pipeline (incl. CLI parser + fetch)
-  ├── kalshi/      → Unit tests for Kalshi client
-  ├── prediction/  → Unit tests for prediction engine
-  ├── trading/     → Unit tests for trading engine + safety tests
-  ├── e2e/         → End-to-end smoke tests (real auth path, real middleware)
-  └── integration/ → Cross-module integration tests
+tests/                   → 834 backend tests (all passing)
+  ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (109)
+  ├── weather/     → Weather pipeline: NWS, Open-Meteo, normalizer, stations, CLI parser, scheduler (140)
+  ├── kalshi/      → Kalshi client: auth, REST, WS, markets, orders, models, cache, market feed (119)
+  ├── prediction/  → Prediction engine: ensemble, brackets, error dist, calibration, pipeline (61)
+  ├── trading/     → Trading engine: EV calc, risk, cooldowns, queue, executor, scheduler, safety (133)
+  ├── api/         → API endpoints: auth, dashboard, health, markets, queue, settings, trades (70)
+  ├── websocket/   → WebSocket: events, manager, subscriber, router (35)
+  ├── e2e/         → End-to-end smoke tests (35)
+  ├── integration/ → Cross-module integration tests (47)
+  └── (root)       → Grafana dashboards, alert rules, alertmanager config validation (49)
 ```
 
 ## Tech Stack
@@ -38,8 +45,8 @@ tests/
 - **Backend:** Python 3.11+, FastAPI, Celery + Redis, PostgreSQL
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
 - **ML/Stats:** scipy, numpy (Gaussian CDF for bracket probabilities)
-- **Monitoring:** prometheus-client, Prometheus, Grafana (auto-provisioned dashboards)
-- **Containerization:** Docker + Docker Compose (8 services incl. Prometheus + Grafana)
+- **Monitoring:** prometheus-client, Prometheus, Grafana (auto-provisioned dashboards), Alertmanager (webhook alerts)
+- **Containerization:** Docker + Docker Compose (9 services incl. Prometheus, Grafana, Alertmanager)
 - **Testing:** pytest (backend), Jest/Vitest (frontend)
 - **CI/CD:** GitHub Actions
 - **Linting:** ruff (Python), ESLint + Prettier (TypeScript)
@@ -80,6 +87,8 @@ tests/
 - Business counters (trading cycles, trades executed, risk blocks, weather fetches) are incremented inline
 - The `/metrics` endpoint exposes all metrics for Prometheus scraping
 - Keep label cardinality bounded — normalize dynamic values (IDs, timestamps) before using as labels
+- **Alert rules** in `monitoring/prometheus/rules/` — 17 rules across 6 groups (http, celery, trading, weather, targets, kalshi_ws)
+- **Alertmanager** routes alerts by severity via webhook to `backend:8000/api/alerts`
 
 ### Interface Contracts
 - All cross-module communication uses Pydantic models defined in `backend/common/schemas.py`

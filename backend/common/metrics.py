@@ -73,6 +73,49 @@ TRADES_RISK_BLOCKED_TOTAL = Counter(
     labelnames=["reason"],
 )
 
+# ─── WebSocket Metrics ───
+
+WS_CONNECTIONS_ACTIVE = Gauge(
+    "ws_connections_active",
+    "Active WebSocket connections",
+)
+
+WS_MESSAGES_SENT_TOTAL = Counter(
+    "ws_messages_sent_total",
+    "WebSocket messages sent to clients",
+    labelnames=["event_type"],
+)
+
+WS_EVENTS_RECEIVED_TOTAL = Counter(
+    "ws_events_received_total",
+    "Events received from Redis pub/sub",
+    labelnames=["event_type"],
+)
+
+# ─── Kalshi WebSocket Feed Metrics ───
+
+KALSHI_WS_CONNECTED = Gauge(
+    "kalshi_ws_connected",
+    "Kalshi WebSocket feed connected (1=connected, 0=disconnected)",
+)
+
+KALSHI_WS_MESSAGES_TOTAL = Counter(
+    "kalshi_ws_messages_total",
+    "Kalshi WebSocket messages received",
+    labelnames=["channel"],
+)
+
+KALSHI_WS_RECONNECTS_TOTAL = Counter(
+    "kalshi_ws_reconnects_total",
+    "Kalshi WebSocket reconnection attempts",
+)
+
+KALSHI_WS_CACHE_HITS_TOTAL = Counter(
+    "kalshi_ws_cache_hits_total",
+    "Price lookups served from cache vs REST fallback",
+    labelnames=["source"],
+)
+
 # ─── Business Metrics: Weather ───
 
 WEATHER_FETCHES_TOTAL = Counter(

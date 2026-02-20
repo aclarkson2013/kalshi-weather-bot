@@ -11,11 +11,13 @@ backend/kalshi/
 ├── __init__.py
 ├── auth.py           -> RSA key management, request signing
 ├── client.py         -> KalshiClient class (REST API wrapper)
-├── websocket.py      -> WebSocket client for real-time data
+├── websocket.py      -> WebSocket client for real-time data (supports demo URL)
 ├── markets.py        -> Market discovery, bracket parsing, ticker mapping
 ├── orders.py         -> Order construction, validation, placement
 ├── models.py         -> Kalshi-specific Pydantic models (responses, requests)
 ├── rate_limiter.py   -> Token bucket rate limiter
+├── cache.py          -> Redis cache helpers for real-time market prices
+├── market_feed.py    -> MarketFeedConsumer — persistent WS feed + Redis cache
 └── exceptions.py     -> Kalshi-specific exceptions (AuthError, OrderRejected, etc.)
 ```
 
@@ -441,12 +443,16 @@ class KalshiWebSocket:
 
     Handles connection, authentication, subscriptions, heartbeat,
     and automatic reconnection with exponential backoff.
+
+    Supports demo mode via optional url parameter.
     """
 
     WS_URL = "wss://api.elections.kalshi.com/trade-api/ws/v2"
+    DEMO_WS_URL = "wss://demo-api.kalshi.com/trade-api/ws/v2"
 
-    def __init__(self, auth: KalshiAuth):
+    def __init__(self, auth: KalshiAuth, url: str | None = None):
         self.auth = auth
+        self._url = url or self.WS_URL
         self.ws = None
         self._running = False
         self._subscriptions: list[dict] = []  # track for re-subscribe on reconnect
@@ -455,7 +461,7 @@ class KalshiWebSocket:
     async def connect(self) -> None:
         """Establish WebSocket connection with signed auth headers."""
         headers = self.auth.sign_request("GET", "/trade-api/ws/v2")
-        self.ws = await websockets.connect(self.WS_URL, extra_headers=headers)
+        self.ws = await websockets.connect(self._url, extra_headers=headers)
         self._running = True
         logger.info("WebSocket connected")
         # Start heartbeat task
@@ -1079,6 +1085,8 @@ Your tests go in `tests/kalshi/`:
 - `test_websocket.py` — WebSocket connection, subscription, reconnection logic
 - `test_rate_limiter.py` — rate limiting correctly throttles requests
 - `test_models.py` — Pydantic model validation (especially OrderRequest validators)
+- `test_cache.py` — Redis cache helpers (17 tests, mock Redis with `unittest.mock.AsyncMock`)
+- `test_market_feed.py` — MarketFeedConsumer lifecycle, auth, message processing (25 tests)
 
 ### Critical test cases:
 
@@ -1201,3 +1209,94 @@ pydantic>=2.0           # Data validation and models
 8. **Rate limit yourself.** Don't rely on Kalshi's 429 responses; proactively limit to 10 req/s.
 9. **Never log API keys or private keys.** The exception base class filters "key"/"secret" from context, but don't rely on that alone. Never put keys in context dicts.
 10. **WebSocket re-subscribe on reconnect.** If the connection drops, you must re-subscribe to all channels after reconnecting.
+
+---
+
+## Real-Time Market Data Feed (Phase 20)
+
+### Architecture
+
+```
+Kalshi WS API (wss://api.elections.kalshi.com/trade-api/ws/v2)
+       │
+       ▼
+MarketFeedConsumer (asyncio background task in FastAPI lifespan)
+       │
+       ├──▶ Redis Cache: kalshi:prices:{city}:{YYMMDD} (TTL 120s)
+       │    └── Trading cycle reads cache first, REST fallback
+       │
+       └──▶ Redis pub/sub: boz:events → browser (via existing WS infra)
+            └── "market.price_update" events for frontend
+```
+
+### Redis Cache (`cache.py`)
+
+Pure async utility functions for storing/retrieving market prices in Redis.
+
+**Redis keys:**
+- `kalshi:prices:{city}:{YYMMDD}` — JSON `{"bracket_label": price_cents}`, TTL 120s
+- `kalshi:tickers:{city}:{YYMMDD}` — JSON `{"bracket_label": "ticker"}`, TTL 300s
+- `kalshi:feed:status` — `"1"` or `"0"`, no TTL
+
+**Key functions:**
+- `get_redis_client()` — creates async Redis client from settings
+- `set_city_prices(redis, city, date, prices, tickers, ttl)` — atomic pipeline write
+- `get_city_prices(redis, city, date)` — returns `(prices, tickers)` or `None` on miss
+- `set_feed_status(redis, connected)` / `get_feed_status(redis)` — feed health tracking
+
+**Important:** `redis.pipeline()` is synchronous (returns pipeline directly), but `pipeline.execute()` is async. In mocks, use `MagicMock` for the pipeline object with `AsyncMock` for `execute()`.
+
+### Market Feed Consumer (`market_feed.py`)
+
+Background asyncio task that maintains a persistent WebSocket connection to Kalshi, receives real-time ticker updates, and caches prices in Redis.
+
+**`MarketFeedConsumer` class:**
+- `start()` — outer loop: load creds → connect → subscribe → process messages → reconnect
+- `stop()` — graceful shutdown (close WS + Redis)
+- `_get_auth()` — reads User from DB via `get_task_session()` (same pattern as trading scheduler)
+- `_get_active_tickers()` — builds tickers for today + tomorrow across active cities, REST bootstrap
+- `_handle_ticker_update(data)` — updates Redis cache + publishes `market.price_update` event
+
+**`market_feed_consumer()`** — top-level entry point (wraps MarketFeedConsumer with retry loop).
+
+**Key patterns:**
+- Uses `session = await get_task_session()` with `try/finally: await session.close()` (NOT `async with`)
+- Demo mode: reads `KALSHI_DEMO_MODE` setting, passes `DEMO_WS_URL` to `KalshiWebSocket`
+- Cache date format: `YYMMDD` (e.g., "260219"), distinct from event ticker format `YYMMMDD` (e.g., "26FEB19")
+- Started as asyncio task in FastAPI lifespan alongside `redis_subscriber()`
+
+### Trading Cycle Integration
+
+The trading scheduler (`backend/trading/scheduler.py`) was modified to try Redis cache first:
+1. `_fetch_market_prices()` — tries `get_city_prices()` from Redis, falls back to REST
+2. `_fetch_market_tickers()` — tries tickers from Redis cache, falls back to REST
+3. Cache hits/misses tracked via `KALSHI_WS_CACHE_HITS_TOTAL` counter (labels: `source="cache"` or `source="rest_fallback"`)
+
+### Prometheus Metrics (4 new)
+
+- `kalshi_ws_connected` (Gauge) — feed connected 1/0
+- `kalshi_ws_messages_total` (Counter, label: channel) — messages received
+- `kalshi_ws_reconnects_total` (Counter) — reconnection attempts
+- `kalshi_ws_cache_hits_total` (Counter, label: source) — cache vs REST fallback
+
+### Alert Rules (`monitoring/prometheus/rules/kalshi_ws.yml`)
+
+- **KalshiWSFeedDisconnected** (warning, 5m) — feed down
+- **KalshiWSFeedStalled** (warning, 2m) — connected but no messages
+- **KalshiWSReconnectsHigh** (warning, 5m) — >3 reconnects in 15m
+
+### WebSocket Demo Mode Support
+
+`KalshiWebSocket` now accepts an optional `url` parameter:
+```python
+DEMO_WS_URL = "wss://demo-api.kalshi.com/trade-api/ws/v2"
+
+def __init__(self, auth: KalshiAuth, url: str | None = None) -> None:
+    self._url = url or self.WS_URL
+```
+
+### Config Settings
+
+Two new optional settings in `backend/common/config.py`:
+- `kalshi_ws_cache_ttl_seconds: int = 120` — Redis cache TTL for prices
+- `kalshi_ws_refresh_minutes: int = 5` — how often to refresh ticker subscriptions
