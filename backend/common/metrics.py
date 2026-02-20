@@ -116,6 +116,21 @@ KALSHI_WS_CACHE_HITS_TOTAL = Counter(
     labelnames=["source"],
 )
 
+# ─── Trading Cycle Step Metrics ───
+
+TRADING_CYCLE_STEP_DURATION_SECONDS = Histogram(
+    "trading_cycle_step_duration_seconds",
+    "Duration of individual trading cycle steps",
+    labelnames=["step"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+)
+
+TRADING_CYCLE_TOTAL_DURATION_SECONDS = Histogram(
+    "trading_cycle_total_duration_seconds",
+    "Total trading cycle duration end-to-end",
+    buckets=(0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 30.0, 60.0),
+)
+
 # ─── Business Metrics: Weather ───
 
 WEATHER_FETCHES_TOTAL = Counter(

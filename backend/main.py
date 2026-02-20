@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app as make_metrics_app
 from sqlalchemy import text
+from starlette.middleware.gzip import GZipMiddleware
 
 from backend.api.auth import router as auth_router
 from backend.api.dashboard import router as dashboard_router
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
 
     # Production middleware (last added = outermost = runs first on request)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
     app.add_middleware(PrometheusMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(RequestIdMiddleware)

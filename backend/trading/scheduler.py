@@ -512,6 +512,14 @@ async def _load_user_settings(db) -> object | None:
         notifications_enabled=user.notifications_enabled
         if user.notifications_enabled is not None
         else True,
+        use_kelly_sizing=user.use_kelly_sizing if user.use_kelly_sizing is not None else False,
+        kelly_fraction=user.kelly_fraction if user.kelly_fraction is not None else 0.25,
+        max_bankroll_pct_per_trade=user.max_bankroll_pct_per_trade
+        if user.max_bankroll_pct_per_trade is not None
+        else 0.05,
+        max_contracts_per_trade=user.max_contracts_per_trade
+        if user.max_contracts_per_trade is not None
+        else 10,
     )
 
 

@@ -1,0 +1,28 @@
+# Dependencies (reinstalled via npm ci in Dockerfile)
+node_modules/
+
+# Build output (rebuilt in Dockerfile)
+.next/
+out/
+
+# Tests (not needed in production image)
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+coverage/
+
+# Linting config
+.eslintrc.json
+
+# Local env files
+.env.local
+
+# Documentation
+*.md
+
+# IDE
+.vscode
+.idea

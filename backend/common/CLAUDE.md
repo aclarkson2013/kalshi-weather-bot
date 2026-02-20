@@ -16,7 +16,7 @@ backend/common/
 ├── config.py         -> App settings via pydantic-settings (reads .env)
 ├── encryption.py     -> AES-256 encryption helpers for API key storage
 ├── exceptions.py     -> Base exception classes shared across modules
-├── middleware.py     -> Production middleware (request ID, logging, Prometheus metrics, security headers)
+├── middleware.py     -> Production middleware (request ID, logging, Prometheus metrics, security headers + smart Cache-Control)
 └── metrics.py        -> Centralized Prometheus metric definitions (counters, histograms, gauges)
 ```
 

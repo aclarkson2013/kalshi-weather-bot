@@ -95,12 +95,19 @@ class User(Base):
     demo_mode = Column(Boolean, default=True)  # Default to demo for safety
     notifications_enabled = Column(Boolean, default=True)
     push_subscription = Column(Text, nullable=True)  # JSON web push subscription
+
+    # Kelly Criterion position sizing
+    use_kelly_sizing = Column(Boolean, default=False)
+    kelly_fraction = Column(Float, default=0.25)  # Quarter Kelly
+    max_bankroll_pct_per_trade = Column(Float, default=0.05)  # 5%
+    max_contracts_per_trade = Column(Integer, default=10)
+
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     # Relationships
-    trades = relationship("Trade", back_populates="user", lazy="selectin")
-    forecasts = relationship("WeatherForecast", back_populates="user", lazy="selectin")
+    trades = relationship("Trade", back_populates="user", lazy="select")
+    forecasts = relationship("WeatherForecast", back_populates="user", lazy="select")
 
 
 class WeatherForecast(Base):

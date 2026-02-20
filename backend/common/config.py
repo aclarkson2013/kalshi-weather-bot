@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     default_cooldown_minutes: int = 60
     default_consecutive_loss_limit: int = 3
 
+    # ─── Database Pool ───
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+
     # ─── Kalshi WebSocket Feed ───
     kalshi_ws_cache_ttl_seconds: int = 120
     kalshi_ws_refresh_minutes: int = 5

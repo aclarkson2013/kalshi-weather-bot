@@ -88,21 +88,28 @@ async def get_dashboard(
     )
     recent_trades = [trade_to_record(t) for t in recent_result.scalars().all()]
 
-    # 5. Latest predictions per active city
+    # 5. Latest predictions per active city (single batched query)
     active_cities_str = user.active_cities or "NYC,CHI,MIA,AUS"
     active_cities = [c.strip() for c in active_cities_str.split(",") if c.strip()]
 
-    predictions = []
-    for city in active_cities:
-        pred_result = await db.execute(
-            select(Prediction)
-            .where(Prediction.city == city)
-            .order_by(Prediction.generated_at.desc())
-            .limit(1)
+    # Subquery: latest generated_at per city
+    latest_sub = (
+        select(
+            Prediction.city,
+            func.max(Prediction.generated_at).label("max_gen"),
         )
-        pred = pred_result.scalar_one_or_none()
-        if pred is not None:
-            predictions.append(prediction_to_schema(pred))
+        .where(Prediction.city.in_(active_cities))
+        .group_by(Prediction.city)
+        .subquery()
+    )
+    pred_result = await db.execute(
+        select(Prediction).join(
+            latest_sub,
+            (Prediction.city == latest_sub.c.city)
+            & (Prediction.generated_at == latest_sub.c.max_gen),
+        )
+    )
+    predictions = [prediction_to_schema(p) for p in pred_result.scalars().all()]
 
     # 6. Calculate next market launch time (10:00 AM ET)
     now_et = datetime.now(ET)

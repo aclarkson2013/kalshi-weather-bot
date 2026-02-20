@@ -26,7 +26,7 @@ backend/
 │   ├── config.py        → App settings via pydantic-settings (reads .env)
 │   ├── encryption.py    → AES-256 encryption helpers for API key storage
 │   ├── exceptions.py    → Custom exception classes
-│   ├── middleware.py    → Production middleware (request ID, logging, Prometheus, security headers)
+│   ├── middleware.py    → Production middleware (request ID, logging, Prometheus, security headers, smart Cache-Control)
 │   └── metrics.py       → Centralized Prometheus metric definitions (counters, histograms, gauges)
 ├── weather/             → Agent 1: Weather data pipeline
 ├── kalshi/              → Agent 2: Kalshi API client (auth, orders, markets, WS feed, cache)

@@ -162,20 +162,46 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security-related HTTP headers to every response.
 
     Headers follow OWASP recommendations for API servers.
+    Cache-Control is path-specific: cacheable endpoints get ``private``
+    directives while sensitive/real-time endpoints get ``no-store``.
     """
 
-    HEADERS: dict[str, str] = {
+    SECURITY_HEADERS: dict[str, str] = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "X-XSS-Protection": "1; mode=block",
-        "Strict-Transport-Security": ("max-age=31536000; includeSubDomains"),
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-        "Cache-Control": "no-store",
     }
+
+    # Path-specific Cache-Control policies (first match wins)
+    _CACHE_POLICIES: list[tuple[str, str]] = [
+        ("/api/performance", "private, max-age=60"),
+        ("/api/markets", "private, max-age=30"),
+        ("/api/trades", "private, max-age=15"),
+        ("/api/dashboard", "private, max-age=10"),
+        ("/api/queue", "private, max-age=5"),
+        ("/api/notifications", "private, max-age=10"),
+        # Sensitive/real-time endpoints: never cache
+        ("/api/logs", "no-store"),
+        ("/api/auth", "no-store"),
+        ("/api/settings", "no-store"),
+        ("/api/alerts", "no-store"),
+    ]
 
     async def dispatch(self, request: Request, call_next) -> Response:  # noqa: ANN001
         response = await call_next(request)
-        for header, value in self.HEADERS.items():
+        for header, value in self.SECURITY_HEADERS.items():
             response.headers[header] = value
+
+        # Path-specific Cache-Control
+        path = request.url.path
+        cache_value = "no-store"  # Default for unmatched paths
+        for prefix, policy in self._CACHE_POLICIES:
+            if path.startswith(prefix):
+                cache_value = policy
+                break
+        response.headers["Cache-Control"] = cache_value
+
         return response

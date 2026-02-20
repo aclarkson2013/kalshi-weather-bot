@@ -39,8 +39,17 @@ jobs:
       - name: Install dependencies
         run: pip install ".[dev]"
 
-      - name: Run tests
-        run: python -m pytest tests/ -x -q --tb=short
+      - name: Run tests with coverage
+        run: >
+          python -m pytest tests/ -x -q --tb=short
+          --cov=backend --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
   frontend:
     name: Frontend Lint & Tests
@@ -65,3 +74,15 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -f Dockerfile.backend -t boz-backend-test .
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile -t boz-frontend-test frontend/

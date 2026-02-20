@@ -56,6 +56,12 @@ class TestSettings:
         s2 = get_settings()
         assert s1 is s2
 
+    def test_db_pool_defaults(self):
+        """Database pool settings have sensible defaults."""
+        settings = get_settings()
+        assert settings.db_pool_size == 10
+        assert settings.db_max_overflow == 20
+
     def test_missing_encryption_key_raises(self):
         """Settings fails if ENCRYPTION_KEY is not set."""
         # Clear the cache

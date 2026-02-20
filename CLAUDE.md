@@ -27,13 +27,13 @@ monitoring/
   └── grafana/     → Grafana provisioning + dashboard JSON files
       ├── provisioning/  → Auto-provisioned datasources + dashboard provider
       └── dashboards/    → API Overview (8 panels) + Trading & Weather (10 panels) + Kalshi WS Feed (6 panels)
-tests/                   → 843 backend tests (all passing)
-  ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (109)
+tests/                   → 905 backend tests (all passing)
+  ├── common/      → Shared module tests: config, schemas, models, logging, encryption, middleware, metrics (118)
   ├── weather/     → Weather pipeline: NWS, Open-Meteo, normalizer, stations, CLI parser, scheduler (140)
   ├── kalshi/      → Kalshi client: auth, REST, WS, markets, orders, models, cache, market feed (119)
   ├── prediction/  → Prediction engine: ensemble, brackets, error dist, calibration, pipeline (61)
   ├── trading/     → Trading engine: EV calc, risk, cooldowns, queue, executor, scheduler, safety (133)
-  ├── api/         → API endpoints: auth, dashboard, health, markets, queue, settings, trades (70)
+  ├── api/         → API endpoints: auth, dashboard, health, markets, queue, settings, trades, optimization (77)
   ├── websocket/   → WebSocket: events, manager, subscriber, router (35)
   ├── e2e/         → End-to-end smoke tests (35)
   ├── integration/ → Cross-module integration tests (47)
@@ -46,7 +46,7 @@ tests/                   → 843 backend tests (all passing)
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
 - **ML/Stats:** scipy, numpy (Gaussian CDF for bracket probabilities)
 - **Monitoring:** prometheus-client, Prometheus, Grafana (auto-provisioned dashboards), Alertmanager (webhook alerts)
-- **Containerization:** Docker + Docker Compose (9 services incl. Prometheus, Grafana, Alertmanager)
+- **Containerization:** Docker + Docker Compose (9 services incl. Prometheus, Grafana, Alertmanager) + `docker-compose.prod.yml` production overrides
 - **Testing:** pytest (backend), Jest/Vitest (frontend)
 - **CI/CD:** GitHub Actions
 - **Linting:** ruff (Python), ESLint + Prettier (TypeScript)

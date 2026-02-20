@@ -74,15 +74,16 @@ class TestMiddlewareIntegration:
         assert r1.headers["X-Request-ID"] != r2.headers["X-Request-ID"]
 
     async def test_security_headers_present(self, authed_client: AsyncClient) -> None:
-        """All 7 OWASP security headers are present."""
+        """All OWASP security headers plus Cache-Control are present."""
         resp = await authed_client.get("/health")
-        for header_name in SecurityHeadersMiddleware.HEADERS:
+        for header_name in SecurityHeadersMiddleware.SECURITY_HEADERS:
             assert header_name in resp.headers, f"Missing header: {header_name}"
+        assert "cache-control" in resp.headers
 
     async def test_security_header_values_correct(self, authed_client: AsyncClient) -> None:
-        """Security header values match the middleware's HEADERS dict."""
+        """Security header values match the middleware's SECURITY_HEADERS dict."""
         resp = await authed_client.get("/health")
-        for header_name, expected_value in SecurityHeadersMiddleware.HEADERS.items():
+        for header_name, expected_value in SecurityHeadersMiddleware.SECURITY_HEADERS.items():
             assert resp.headers[header_name] == expected_value
 
 

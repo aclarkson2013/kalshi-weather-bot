@@ -196,3 +196,9 @@ class UserSettings(BaseModel):
     active_cities: list[CityCode] = ["NYC", "CHI", "MIA", "AUS"]
     demo_mode: bool = True  # Default to demo for safety
     notifications_enabled: bool = True
+
+    # ─── Kelly Criterion Position Sizing ───
+    use_kelly_sizing: bool = False  # Disabled by default (always 1 contract)
+    kelly_fraction: float = Field(default=0.25, ge=0.01, le=1.0)  # Quarter Kelly
+    max_bankroll_pct_per_trade: float = Field(default=0.05, ge=0.01, le=0.25)  # 5%
+    max_contracts_per_trade: int = Field(default=10, ge=1, le=100)

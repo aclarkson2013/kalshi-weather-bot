@@ -64,6 +64,12 @@ def _make_mock_user(**overrides) -> MagicMock:
     user.active_cities = overrides.get("active_cities", "NYC,CHI,MIA,AUS")
     user.notifications_enabled = overrides.get("notifications_enabled", True)
     user.push_subscription = overrides.get("push_subscription")
+    # Kelly Criterion fields
+    user.use_kelly_sizing = overrides.get("use_kelly_sizing")
+    user.kelly_fraction = overrides.get("kelly_fraction")
+    user.max_bankroll_pct_per_trade = overrides.get("max_bankroll_pct_per_trade")
+    user.max_contracts_per_trade = overrides.get("max_contracts_per_trade")
+    user.demo_mode = overrides.get("demo_mode", True)
     return user
 
 

@@ -1,0 +1,58 @@
+# Version control
+.git
+.github
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+.pytest_cache
+.ruff_cache
+
+# Virtual environments
+.venv
+venv
+env
+
+# Tests (not needed in production image)
+tests/
+
+# Frontend (has its own Dockerfile)
+frontend/
+
+# Monitoring configs (mounted as volumes, not baked into image)
+monitoring/
+
+# Documentation
+*.md
+
+# Logs and data
+*.log
+data/
+logs/
+
+# Local env files
+.env
+.env.local
+.env.production
+
+# Coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# Secrets
+*.pem
+*.key
+
+# Docker
+docker-compose*.yml
+Dockerfile.*
+.dockerignore

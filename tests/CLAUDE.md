@@ -19,13 +19,13 @@ tests/
 │   ├── kalshi_orderbook.json
 │   ├── kalshi_order_response.json
 │   └── nws_cli_nyc.json
-├── common/              → Unit tests for backend/common/ (109 tests)
+├── common/              → Unit tests for backend/common/ (118 tests)
 │   ├── test_encryption.py        → AES-256 encrypt/decrypt helpers (8 tests)
-│   ├── test_config.py            → Settings + get_settings config loading (8 tests)
+│   ├── test_config.py            → Settings + get_settings config loading (9 tests)
 │   ├── test_logging.py           → Structured logger + secret redaction (13 tests)
 │   ├── test_schemas.py           → All shared Pydantic schemas (21 tests)
 │   ├── test_models.py            → SQLAlchemy ORM models against test DB (9 tests)
-│   ├── test_middleware.py         → Request ID, logging, security headers middleware (19 tests)
+│   ├── test_middleware.py         → Request ID, logging, security headers, cache-control middleware (27 tests)
 │   ├── test_metrics.py           → Metric definitions, labels, custom buckets (12 tests)
 │   └── test_metrics_middleware.py → PrometheusMiddleware, path normalization (19 tests)
 ├── weather/             → Unit tests for backend/weather/ (140 tests)
@@ -68,7 +68,7 @@ tests/
 │   ├── test_cooldown.py           → Per-loss + consecutive cooldowns (9 tests)
 │   ├── test_executor.py           → Order placement + DB recording (8 tests)
 │   └── test_notifications.py      → Web push via VAPID (5 tests)
-├── api/                 → API endpoint tests (70 tests)
+├── api/                 → API endpoint tests (77 tests)
 │   ├── conftest.py      → API fixtures (api_engine, client, mock_kalshi, factories)
 │   ├── test_auth.py     → Auth validate + disconnect (5 tests)
 │   ├── test_auth_status.py → Auth status, demo mode, onboarding flow (17 tests)
@@ -77,6 +77,7 @@ tests/
 │   ├── test_logs.py         → Log viewer endpoint (6 tests)
 │   ├── test_markets.py      → Markets endpoint (5 tests)
 │   ├── test_notifications.py → Push notification subscribe (3 tests)
+│   ├── test_optimization.py → Dashboard batch query + performance SQL aggregation (7 tests)
 │   ├── test_performance.py  → Performance analytics endpoint (5 tests)
 │   ├── test_queue.py        → Trade queue approve/reject/list (8 tests)
 │   ├── test_settings.py     → Settings read/update (5 tests)
@@ -1113,8 +1114,9 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short` (843 tests, in-memory SQLite, no Docker needed) | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (905 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 110 tests) | Yes |
+| `docker-build` | Docker build smoke test for backend + frontend Dockerfiles | Yes |
 
 **Key design decisions:**
 - No PostgreSQL/Redis services needed — backend tests use in-memory SQLite and mock Redis

@@ -853,12 +853,12 @@ Each sub-agent must deliver code WITH passing tests. This is the definition of "
 
 ---
 
-## 11. Remaining Open Questions
+## 11. Resolved Questions
 
-1. **Kalshi API tier**: Do users need Premier tier for full API access, or does basic work? Need to verify.
-2. **Multi-user on single instance**: If self-hosting, should one Docker instance support multiple users, or is it one-instance-per-user?
-3. **Liability**: Any legal considerations for distributing an open-source automated trading tool?
-4. **Kalshi ToS**: Does Kalshi's ToS allow third-party bots? Need to confirm.
+1. **Kalshi API tier**: Basic tier is sufficient — no Premier tier needed.
+2. **Multi-user on single instance**: One instance per user. Each user provides their own Kalshi API key. No centralized user data storage.
+3. **Liability**: Not a concern — each user sets up the bot on their own infrastructure. The project does not store user data centrally.
+4. **Kalshi ToS**: Kalshi allows third-party bots/automated trading.
 
 ---
 

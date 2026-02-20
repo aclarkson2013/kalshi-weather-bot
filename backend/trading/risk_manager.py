@@ -115,8 +115,9 @@ class RiskManager:
             )
             return False, f"Cooldown active: {cooldown_reason}"
 
-        # 2. Trade size check (all in cents)
-        trade_cost_cents = signal.price_cents if signal.side == "yes" else 100 - signal.price_cents
+        # 2. Trade size check (all in cents, accounting for quantity)
+        cost_per_contract = signal.price_cents if signal.side == "yes" else 100 - signal.price_cents
+        trade_cost_cents = cost_per_contract * signal.quantity
 
         if trade_cost_cents > self.settings.max_trade_size_cents:
             logger.info(

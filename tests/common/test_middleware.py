@@ -50,6 +50,39 @@ def _make_app() -> FastAPI:
         """Echo the ContextVar request ID back to the caller."""
         return {"request_id": request_id_var.get("")}
 
+    # Routes for Cache-Control policy testing
+    @app.get("/api/performance")
+    async def perf():
+        return {"data": "perf"}
+
+    @app.get("/api/dashboard")
+    async def dashboard():
+        return {"data": "dash"}
+
+    @app.get("/api/auth/status")
+    async def auth_status():
+        return {"data": "auth"}
+
+    @app.get("/api/markets")
+    async def markets():
+        return {"data": "markets"}
+
+    @app.get("/api/trades")
+    async def trades():
+        return {"data": "trades"}
+
+    @app.get("/api/logs")
+    async def logs():
+        return {"data": "logs"}
+
+    @app.get("/api/settings")
+    async def settings():
+        return {"data": "settings"}
+
+    @app.get("/api/queue")
+    async def queue():
+        return {"data": "queue"}
+
     return app
 
 
@@ -204,3 +237,53 @@ class TestSecurityHeadersMiddleware:
         resp = await client.get("/health")
         assert resp.headers["x-content-type-options"] == "nosniff"
         assert resp.headers["x-frame-options"] == "DENY"
+
+    # ─── Path-Specific Cache-Control Tests ───
+
+    @pytest.mark.asyncio
+    async def test_cache_control_performance_cacheable(self, client: AsyncClient):
+        """Performance endpoint gets private 60s cache."""
+        resp = await client.get("/api/performance")
+        assert resp.headers["cache-control"] == "private, max-age=60"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_dashboard_cacheable(self, client: AsyncClient):
+        """Dashboard endpoint gets private 10s cache."""
+        resp = await client.get("/api/dashboard")
+        assert resp.headers["cache-control"] == "private, max-age=10"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_markets_cacheable(self, client: AsyncClient):
+        """Markets endpoint gets private 30s cache."""
+        resp = await client.get("/api/markets")
+        assert resp.headers["cache-control"] == "private, max-age=30"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_trades_cacheable(self, client: AsyncClient):
+        """Trades endpoint gets private 15s cache."""
+        resp = await client.get("/api/trades")
+        assert resp.headers["cache-control"] == "private, max-age=15"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_auth_no_store(self, client: AsyncClient):
+        """Auth endpoints are never cached."""
+        resp = await client.get("/api/auth/status")
+        assert resp.headers["cache-control"] == "no-store"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_logs_no_store(self, client: AsyncClient):
+        """Logs endpoint is never cached (real-time data)."""
+        resp = await client.get("/api/logs")
+        assert resp.headers["cache-control"] == "no-store"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_settings_no_store(self, client: AsyncClient):
+        """Settings endpoint is never cached (mutation target)."""
+        resp = await client.get("/api/settings")
+        assert resp.headers["cache-control"] == "no-store"
+
+    @pytest.mark.asyncio
+    async def test_cache_control_queue_cacheable(self, client: AsyncClient):
+        """Queue endpoint gets private 5s cache."""
+        resp = await client.get("/api/queue")
+        assert resp.headers["cache-control"] == "private, max-age=5"

@@ -28,6 +28,8 @@ KNOWN_METRICS = {
     "trading_cycles_total",
     "trades_executed_total",
     "trades_risk_blocked_total",
+    "trading_cycle_step_duration_seconds",
+    "trading_cycle_total_duration_seconds",
     "ws_connections_active",
     "ws_messages_sent_total",
     "ws_events_received_total",
