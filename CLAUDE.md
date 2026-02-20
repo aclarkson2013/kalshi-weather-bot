@@ -48,7 +48,7 @@ tests/                   → 1191 backend tests (all passing)
 - **Frontend:** Next.js 14+, React, Tailwind CSS, PWA (Workbox)
 - **ML/Stats:** scipy, numpy, XGBoost, scikit-learn (Gaussian CDF + multi-model ML ensemble: XGBoost + Random Forest + Ridge)
 - **Monitoring:** prometheus-client, Prometheus, Grafana (auto-provisioned dashboards), Alertmanager (webhook alerts)
-- **Containerization:** Docker + Docker Compose (9 services incl. Prometheus, Grafana, Alertmanager) + `docker-compose.prod.yml` production overrides
+- **Containerization:** Docker + Docker Compose (9 services incl. Prometheus, Grafana, Alertmanager) + `docker-compose.prod.yml` production overrides + `docker-compose.cloud.yml` cloud override (no monitoring)
 - **Testing:** pytest (backend), Jest/Vitest (frontend)
 - **CI/CD:** GitHub Actions
 - **Linting:** ruff (Python), ESLint + Prettier (TypeScript)
@@ -134,6 +134,13 @@ tests/                   → 1191 backend tests (all passing)
 - TypeScript: camelCase for files, PascalCase for components
 - Tests mirror source structure: `backend/weather/nws.py` → `tests/weather/test_nws.py`
 - All test files prefixed with `test_`
+
+## Deployment
+- **Self-hosted:** `docker compose up -d` (see `README.md`)
+- **Cloud:** Deploy guides in `docs/` for Railway, Fly.io, Oracle Cloud Free Tier
+- **Config files:** `fly.toml` (backend), `fly.frontend.toml` (frontend), `railway.json` (Railway button)
+- **Cloud override:** `docker-compose.cloud.yml` disables monitoring stack (replicas: 0)
+- **Env generator:** `scripts/generate-env.sh` creates `.env` with random ENCRYPTION_KEY
 
 ## Environment Variables
 - All config via `.env` file (see `.env.example`)

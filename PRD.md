@@ -3,7 +3,7 @@
 
 **Version:** 1.2
 **Date:** February 19, 2026
-**Status:** MVP Complete + Phase 2 features in progress (27 phases, 1301 tests)
+**Status:** All P0+P1 complete (28 phases, 1301 tests)
 
 ---
 
@@ -488,7 +488,7 @@ Your Machine (homelab / cloud VPS)
 - [x] **Performance analytics** - Cumulative P&L charts, win rate, ROI per city (Phase 5 — performance page + charts)
 - [x] **PWA install prompt** - Installable via manifest.json + next-pwa service worker (Phase 5)
 - [x] **Log viewer in dashboard** - Filterable log viewer with module/level/time filters (Phase 5)
-- [ ] **One-click cloud deploy** - Railway / Fly.io / Oracle Cloud deploy guides in README
+- [x] **One-click cloud deploy** - Railway / Fly.io / Oracle Cloud deploy guides in README (Phase 28)
 
 ### 4.2 Phase 2 (Post-MVP) — Not Yet Started
 
@@ -537,6 +537,7 @@ Your Machine (homelab / cloud VPS)
 | 25 | Backtesting module | Day-by-day simulation engine, synthetic prices, in-memory risk sim, metrics (Sharpe/drawdown/ROI), Kelly comparison, API endpoint | 95 |
 | 26 | Forecast accuracy tracking | Brier score calibration, per-source MAE/RMSE/bias, error trends, 3 API endpoints | 54 |
 | 27 | Multi-model ML ensemble | XGBoost + Random Forest + Ridge with inverse-RMSE weighting, training pipeline, graceful degradation | 57 |
+| 28 | One-click cloud deploy | README, Railway/Fly.io/Oracle guides, fly.toml, railway.json, docker-compose.cloud.yml, generate-env.sh | — |
 | **Total** | | **1191 backend + 110 frontend = 1301 tests** | |
 
 ---

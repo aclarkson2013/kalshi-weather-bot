@@ -1,0 +1,29 @@
+# Cloud/VPS override — strips monitoring stack for resource savings.
+#
+# Usage (core services only):
+#   docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d
+#
+# For production settings (resource limits, 4 workers):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.cloud.yml up -d
+#
+# Keeps 6 core services: backend, frontend, postgres, redis, celery-worker, celery-beat
+# Removes: prometheus, grafana, alertmanager
+
+services:
+  prometheus:
+    deploy:
+      replicas: 0
+
+  grafana:
+    deploy:
+      replicas: 0
+
+  alertmanager:
+    deploy:
+      replicas: 0
+
+  # Allow frontend API URL to be configured via environment variable
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}

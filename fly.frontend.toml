@@ -1,0 +1,30 @@
+# Fly.io configuration for boz-weather-trader frontend (Next.js PWA).
+# See docs/deploy-fly.md for full deployment guide.
+#
+# Deploy: fly deploy --config fly.frontend.toml
+#
+# IMPORTANT: Update NEXT_PUBLIC_API_URL to your backend's Fly URL before deploying.
+# This value is baked into the JS bundle at build time.
+
+app = "boz-weather-trader-web"
+primary_region = "iad"
+
+[build]
+  dockerfile = "frontend/Dockerfile"
+
+  [build.args]
+    NEXT_PUBLIC_API_URL = "https://boz-weather-trader.fly.dev"
+
+[env]
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

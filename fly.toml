@@ -1,0 +1,38 @@
+# Fly.io configuration for boz-weather-trader backend.
+# See docs/deploy-fly.md for full deployment guide.
+#
+# Deploy: fly deploy
+# Secrets: fly secrets set ENCRYPTION_KEY=... DATABASE_URL=... REDIS_URL=...
+
+app = "boz-weather-trader"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.backend"
+
+[env]
+  ENVIRONMENT = "production"
+  LOG_LEVEL = "WARNING"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "15s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
