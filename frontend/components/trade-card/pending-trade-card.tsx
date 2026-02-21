@@ -8,8 +8,10 @@ import {
   confidenceBadgeColor,
   formatDate,
   formatProbability,
+  formatTime,
   settlementCountdown,
   timeRemaining,
+  tradeFinancials,
 } from "@/lib/utils";
 
 interface PendingTradeCardProps {
@@ -34,6 +36,11 @@ export default function PendingTradeCard({
   const evPercent = (trade.ev * 100).toFixed(1);
   const isPositiveEv = trade.ev > 0;
   const countdown = settlementCountdown(trade.market_ticker);
+  const { costCents, profitCents } = tradeFinancials(
+    trade.price_cents,
+    trade.quantity,
+    trade.side,
+  );
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
@@ -59,7 +66,7 @@ export default function PendingTradeCard({
 
       {/* Date + side subtitle */}
       <p className="text-xs text-boz-neutral mb-2">
-        {formatDate(trade.created_at)} &middot;{" "}
+        {formatDate(trade.created_at)} at {formatTime(trade.created_at)} &middot;{" "}
         {trade.side.toUpperCase()} @ ${centsToDollars(trade.price_cents)}
         {countdown && (
           <>
@@ -89,6 +96,16 @@ export default function PendingTradeCard({
         <div>
           <span className="text-boz-neutral">Market:</span>{" "}
           {formatProbability(trade.market_probability)}
+        </div>
+        <div>
+          <span className="text-boz-neutral">Cost:</span>{" "}
+          ${(costCents / 100).toFixed(2)}
+        </div>
+        <div>
+          <span className="text-boz-neutral">Profit if right:</span>{" "}
+          <span className="text-boz-success font-medium">
+            +${(profitCents / 100).toFixed(2)}
+          </span>
         </div>
       </div>
 

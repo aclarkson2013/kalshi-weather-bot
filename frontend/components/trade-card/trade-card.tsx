@@ -12,6 +12,7 @@ import {
   formatProbability,
   settlementCountdown,
   statusColor,
+  tradeFinancials,
 } from "@/lib/utils";
 
 interface TradeCardProps {
@@ -27,6 +28,11 @@ export default function TradeCard({ trade }: TradeCardProps) {
 
   const isSettled = trade.status === "WON" || trade.status === "LOST";
   const countdown = settlementCountdown(trade.market_ticker, isSettled);
+  const { costCents, profitCents } = tradeFinancials(
+    trade.price_cents,
+    trade.quantity,
+    trade.side,
+  );
   const borderColor =
     trade.status === "WON"
       ? "border-l-boz-success"
@@ -115,6 +121,18 @@ export default function TradeCard({ trade }: TradeCardProps) {
               <span className="text-boz-neutral">Quantity:</span>{" "}
               {trade.quantity}
             </div>
+            <div>
+              <span className="text-boz-neutral">Cost:</span>{" "}
+              ${(costCents / 100).toFixed(2)}
+            </div>
+            {!isSettled && (
+              <div>
+                <span className="text-boz-neutral">Profit if right:</span>{" "}
+                <span className="text-boz-success font-medium">
+                  +${(profitCents / 100).toFixed(2)}
+                </span>
+              </div>
+            )}
             {trade.settlement_temp_f !== null && (
               <div>
                 <span className="text-boz-neutral">Settlement:</span>{" "}

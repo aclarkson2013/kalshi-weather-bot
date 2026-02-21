@@ -81,6 +81,32 @@ export function formatDateTime(dateStr: string): string {
 }
 
 /**
+ * Format an ISO datetime string to show just the time.
+ * Returns "3:06 PM" style format.
+ */
+export function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Calculate trade cost, payout, and potential profit from price and quantity.
+ * All values in cents. Payout assumes $1 per contract on the winning side.
+ */
+export function tradeFinancials(priceCents: number, quantity: number, side: string) {
+  // Cost is what you pay: price × quantity for YES, (100 - price) × quantity for NO
+  const costCents = side === "yes" ? priceCents * quantity : (100 - priceCents) * quantity;
+  // Payout if right: $1.00 × quantity = 100 cents per contract
+  const payoutCents = 100 * quantity;
+  // Potential profit: payout - cost
+  const profitCents = payoutCents - costCents;
+  return { costCents, payoutCents, profitCents };
+}
+
+/**
  * Calculate time remaining until a target datetime.
  * Returns "2h 15m" or "Expired" if past.
  */
