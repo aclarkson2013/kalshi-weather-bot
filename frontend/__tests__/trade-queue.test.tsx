@@ -19,12 +19,6 @@ vi.mock("@/lib/api", () => ({
   rejectTrade: (...args: unknown[]) => mockRejectTrade(...args),
 }));
 
-// Mock SWR mutate
-vi.mock("swr", async () => {
-  const actual = await vi.importActual("swr");
-  return { ...actual, mutate: vi.fn() };
-});
-
 // Mock toast
 const mockShowToast = vi.fn();
 vi.mock("@/components/ui/toast", () => ({
@@ -67,6 +61,7 @@ describe("QueuePage", () => {
       data: [],
       error: undefined,
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -78,6 +73,7 @@ describe("QueuePage", () => {
       data: [MOCK_TRADE],
       error: undefined,
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -94,6 +90,7 @@ describe("QueuePage", () => {
       data: [MOCK_TRADE],
       error: undefined,
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -110,6 +107,7 @@ describe("QueuePage", () => {
       data: [MOCK_TRADE],
       error: undefined,
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -126,6 +124,7 @@ describe("QueuePage", () => {
       data: [],
       error: undefined,
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -139,6 +138,7 @@ describe("QueuePage", () => {
       data: undefined,
       error: new Error("Connection failed"),
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -150,6 +150,7 @@ describe("QueuePage", () => {
       data: undefined,
       error: undefined,
       isLoading: true,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);
@@ -162,6 +163,7 @@ describe("QueuePage", () => {
       data: [MOCK_TRADE],
       error: undefined,
       isLoading: false,
+      mutate: vi.fn(),
     });
 
     render(<QueuePage />);

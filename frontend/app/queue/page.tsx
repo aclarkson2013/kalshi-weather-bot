@@ -6,7 +6,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { mutate } from "swr";
 
 import PendingTradeCard from "@/components/trade-card/pending-trade-card";
 import EmptyState from "@/components/ui/empty-state";
@@ -68,7 +67,7 @@ function sortTrades(
 // ─── Component ───
 
 export default function QueuePage() {
-  const { data: trades, error, isLoading } = usePendingTrades();
+  const { data: trades, error, isLoading, mutate: mutateTrades } = usePendingTrades();
   const { data: settings } = useSettings();
   const { showToast } = useToast();
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -93,15 +92,17 @@ export default function QueuePage() {
   );
 
   // Optimistically remove a trade card from the list before the API call completes.
-  // If the call fails, SWR revalidation restores the card automatically.
-  const optimisticRemove = useCallback((id: string) => {
-    mutate(
-      "/api/queue",
-      (current: PendingTrade[] | undefined) =>
-        current ? current.filter((t) => t.id !== id) : current,
-      false,
-    );
-  }, []);
+  // Uses the bound mutate from useSWR for instant cache updates.
+  // If the call fails, revalidation restores the card automatically.
+  const optimisticRemove = useCallback(
+    (id: string) => {
+      mutateTrades(
+        (current) => (current ? current.filter((t) => t.id !== id) : current),
+        { revalidate: false },
+      );
+    },
+    [mutateTrades],
+  );
 
   const handleApprove = useCallback(
     async (id: string) => {
@@ -114,8 +115,7 @@ export default function QueuePage() {
           title: "Trade approved!",
           message: "Your order has been placed on Kalshi.",
         });
-        await mutate("/api/queue");
-        await mutate("/api/dashboard");
+        await mutateTrades();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Something went wrong";
@@ -143,12 +143,12 @@ export default function QueuePage() {
             duration: 5000,
           });
         }
-        await mutate("/api/queue");
+        await mutateTrades();
       } finally {
         setLoadingId(null);
       }
     },
-    [optimisticRemove, showToast],
+    [optimisticRemove, showToast, mutateTrades],
   );
 
   const handleReject = useCallback(
@@ -162,7 +162,7 @@ export default function QueuePage() {
           title: "Trade rejected",
           message: "The trade has been removed from your queue.",
         });
-        await mutate("/api/queue");
+        await mutateTrades();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Something went wrong";
@@ -181,12 +181,12 @@ export default function QueuePage() {
             duration: 5000,
           });
         }
-        await mutate("/api/queue");
+        await mutateTrades();
       } finally {
         setLoadingId(null);
       }
     },
-    [optimisticRemove, showToast],
+    [optimisticRemove, showToast, mutateTrades],
   );
 
   const isAutoMode = settings?.trading_mode === "auto";
