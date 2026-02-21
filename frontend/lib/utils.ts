@@ -67,11 +67,18 @@ export function formatDate(dateStr: string | Date): string {
 }
 
 /**
- * Format an ISO datetime string for display with time.
+ * Format an ISO datetime string for display with time in local timezone.
+ * Backend stores UTC without "Z" suffix, so we append it to ensure
+ * JavaScript properly converts to the user's local time.
  * Returns "Feb 18, 2:30 PM" style format.
  */
 export function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr);
+  // If no timezone info, treat as UTC (backend stores naive UTC datetimes)
+  const normalized =
+    typeof dateStr === "string" && !dateStr.endsWith("Z") && !dateStr.includes("+")
+      ? dateStr + "Z"
+      : dateStr;
+  const d = new Date(normalized);
   return d.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
@@ -81,11 +88,18 @@ export function formatDateTime(dateStr: string): string {
 }
 
 /**
- * Format an ISO datetime string to show just the time.
+ * Format an ISO datetime string to show just the time in local timezone.
+ * Backend stores UTC without "Z" suffix, so we append it to ensure
+ * JavaScript properly converts to the user's local time.
  * Returns "3:06 PM" style format.
  */
 export function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
+  // If no timezone info, treat as UTC (backend stores naive UTC datetimes)
+  const normalized =
+    typeof dateStr === "string" && !dateStr.endsWith("Z") && !dateStr.includes("+")
+      ? dateStr + "Z"
+      : dateStr;
+  const d = new Date(normalized);
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
