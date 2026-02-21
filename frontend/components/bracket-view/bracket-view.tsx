@@ -1,7 +1,7 @@
 "use client";
 
 import type { BracketPrediction } from "@/lib/types";
-import { formatProbability } from "@/lib/utils";
+import { confidenceBadgeColor, formatProbability } from "@/lib/utils";
 
 interface BracketViewProps {
   prediction: BracketPrediction;
@@ -26,8 +26,12 @@ export default function BracketView({
           </h3>
           <p className="text-xs text-boz-neutral">
             Mean: {prediction.ensemble_mean_f.toFixed(1)}°F | Std:{" "}
-            {prediction.ensemble_std_f.toFixed(1)}°F | Confidence:{" "}
-            {prediction.confidence}
+            {prediction.ensemble_std_f.toFixed(1)}°F |{" "}
+            <span
+              className={`inline-block px-1.5 py-0.5 rounded-full text-xs ${confidenceBadgeColor(prediction.confidence)}`}
+            >
+              {prediction.confidence}
+            </span>
           </p>
         </div>
         <span className="text-xs text-boz-neutral">
