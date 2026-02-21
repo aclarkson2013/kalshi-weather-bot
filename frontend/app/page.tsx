@@ -7,11 +7,13 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { useMemo } from "react";
 
 import ErrorBoundary from "@/components/ui/error-boundary";
 import Skeleton from "@/components/ui/skeleton";
 import TradeCard from "@/components/trade-card/trade-card";
 import { useDashboard } from "@/lib/hooks";
+import { groupTrades } from "@/lib/trade-grouping";
 import type { DashboardData } from "@/lib/types";
 import { centsToDollars, formatDateTime, formatPnL, CITY_NAMES } from "@/lib/utils";
 
@@ -41,6 +43,15 @@ function DashboardContent({ data }: { data: DashboardData }) {
   const pnlColor =
     data.today_pnl_cents >= 0 ? "text-boz-success" : "text-boz-danger";
   const PnlIcon = data.today_pnl_cents >= 0 ? TrendingUp : TrendingDown;
+
+  const groupedPositions = useMemo(
+    () => groupTrades(data.active_positions),
+    [data.active_positions],
+  );
+  const groupedRecent = useMemo(
+    () => groupTrades(data.recent_trades),
+    [data.recent_trades],
+  );
 
   return (
     <>
@@ -116,28 +127,28 @@ function DashboardContent({ data }: { data: DashboardData }) {
       )}
 
       {/* Active Positions */}
-      {data.active_positions.length > 0 && (
+      {groupedPositions.length > 0 && (
         <section className="mb-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">
             Open Positions
           </h2>
           <div className="space-y-2">
-            {data.active_positions.map((trade) => (
-              <TradeCard key={trade.id} trade={trade} />
+            {groupedPositions.map((group) => (
+              <TradeCard key={group.groupKey} group={group} />
             ))}
           </div>
         </section>
       )}
 
       {/* Recent Trades */}
-      {data.recent_trades.length > 0 && (
+      {groupedRecent.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-900 mb-3">
             Recent Trades
           </h2>
           <div className="space-y-2">
-            {data.recent_trades.map((trade) => (
-              <TradeCard key={trade.id} trade={trade} />
+            {groupedRecent.map((group) => (
+              <TradeCard key={group.groupKey} group={group} />
             ))}
           </div>
         </section>

@@ -27,6 +27,7 @@ frontend/
 │   ├── api.ts              → Backend API client (fetch wrapper) + getWsUrl() helper
 │   ├── types.ts            → TypeScript types matching backend schemas
 │   ├── hooks.ts            → SWR data fetching hooks
+│   ├── trade-grouping.ts   → Frontend-only trade grouping: groupTrades() + groupByMarket()
 │   ├── websocket-types.ts  → WebSocket event types + EVENT_TO_SWR_KEYS mapping
 │   ├── websocket.ts        → useWebSocket() hook, WebSocketProvider, exponential backoff reconnection
 │   ├── notifications.ts    → Web Push notification helpers

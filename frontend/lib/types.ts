@@ -185,6 +185,48 @@ export interface PerformanceData {
   accuracy_over_time: AccuracyPoint[];
 }
 
+// ─── Grouped Trades (frontend-only aggregation) ───
+
+/** Trades sharing the same market_ticker+bracket+side+status, aggregated into one card. */
+export interface GroupedTrade {
+  groupKey: string;
+
+  // Representative fields (same across all trades in group)
+  city: CityCode;
+  date: string;
+  market_ticker: string | null;
+  bracket_label: string;
+  side: TradeSide;
+  status: TradeStatus;
+  confidence: ConfidenceLevel;
+
+  // Aggregated fields
+  totalQuantity: number;
+  totalCostCents: number;
+  vwapCents: number; // volume-weighted average price
+  totalPnlCents: number | null;
+  avgModelProbability: number;
+  avgMarketProbability: number;
+  avgEvAtEntry: number;
+
+  // Metadata
+  tradeIds: string[];
+  trades: TradeRecord[];
+  earliestCreatedAt: string;
+  latestCreatedAt: string;
+  settlement_temp_f: number | null;
+  settlement_source: string | null;
+}
+
+/** Market section header grouping for the trades page. */
+export interface MarketGroup {
+  label: string;
+  marketKey: string;
+  city: CityCode;
+  date: string;
+  groups: GroupedTrade[];
+}
+
 // ─── Portfolio Sync ───
 
 export interface SyncResult {

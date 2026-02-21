@@ -1,7 +1,7 @@
 "use client";
 
 import { BarChart3, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import TradeCard from "@/components/trade-card/trade-card";
 import EmptyState from "@/components/ui/empty-state";
@@ -10,6 +10,7 @@ import Skeleton from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { syncTrades } from "@/lib/api";
 import { useTrades } from "@/lib/hooks";
+import { groupByMarket } from "@/lib/trade-grouping";
 import type { CityCode, SyncResult, TradeStatus } from "@/lib/types";
 import { centsToDollars, formatPnL } from "@/lib/utils";
 
@@ -35,11 +36,14 @@ export default function TradesPage() {
 
   const totalPages = data ? Math.ceil(data.total / 20) : 0;
 
+  // Group trades by market for section headers
+  const trades = data?.trades;
+  const markets = useMemo(() => groupByMarket(trades ?? []), [trades]);
+
   // Calculate summary stats from current page (visible trades)
-  const trades = data?.trades ?? [];
-  const totalPnl = trades.reduce((sum, t) => sum + (t.pnl_cents ?? 0), 0);
-  const wonCount = trades.filter((t) => t.status === "WON").length;
-  const lostCount = trades.filter((t) => t.status === "LOST").length;
+  const totalPnl = (trades ?? []).reduce((sum, t) => sum + (t.pnl_cents ?? 0), 0);
+  const wonCount = (trades ?? []).filter((t) => t.status === "WON").length;
+  const lostCount = (trades ?? []).filter((t) => t.status === "LOST").length;
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -175,9 +179,18 @@ export default function TradesPage() {
 
       {data && data.trades.length > 0 && (
         <>
-          <div className="space-y-2 mb-4">
-            {data.trades.map((trade) => (
-              <TradeCard key={trade.id} trade={trade} />
+          <div className="space-y-4 mb-4">
+            {markets.map((market) => (
+              <section key={market.marketKey}>
+                <h2 className="text-sm font-semibold text-gray-900 mb-2">
+                  {market.label}
+                </h2>
+                <div className="space-y-2">
+                  {market.groups.map((group) => (
+                    <TradeCard key={group.groupKey} group={group} />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
 
