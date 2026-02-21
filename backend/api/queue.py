@@ -167,3 +167,49 @@ async def reject_pending_trade(
         "Pending trade rejected",
         extra={"data": {"trade_id": trade_id}},
     )
+
+
+@router.post("/cancel-resting", status_code=200)
+async def cancel_resting_orders(
+    user: User = Depends(get_current_user),
+    kalshi: KalshiClient = Depends(get_kalshi_client),
+) -> dict:
+    """Cancel all resting (unfilled) orders on Kalshi.
+
+    Fetches the user's resting orders from Kalshi and cancels each one,
+    freeing up locked cash. This is a cleanup operation for limit orders
+    that were placed but never filled.
+
+    Args:
+        user: The authenticated user.
+        kalshi: Authenticated Kalshi client.
+
+    Returns:
+        Dict with count of cancelled orders.
+    """
+    try:
+        orders = await kalshi.get_orders(status="resting")
+    except Exception as exc:
+        logger.error(
+            "Failed to fetch resting orders",
+            extra={"data": {"error": str(exc)}},
+        )
+        raise HTTPException(status_code=502, detail="Failed to fetch resting orders") from exc
+
+    cancelled = 0
+    for order in orders:
+        try:
+            await kalshi.cancel_order(order.order_id)
+            cancelled += 1
+        except Exception as exc:
+            logger.error(
+                "Failed to cancel resting order",
+                extra={"data": {"order_id": order.order_id, "error": str(exc)}},
+            )
+
+    logger.info(
+        "Resting orders cancelled",
+        extra={"data": {"cancelled": cancelled, "total": len(orders)}},
+    )
+
+    return {"cancelled": cancelled, "total": len(orders)}

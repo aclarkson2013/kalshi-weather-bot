@@ -325,6 +325,27 @@ class KalshiClient:
 
         return response
 
+    async def get_orders(self, status: str | None = None) -> list[OrderResponse]:
+        """Get orders from the portfolio, optionally filtered by status.
+
+        Args:
+            status: Filter by order status (e.g., "resting", "executed", "canceled").
+                    None returns all orders.
+
+        Returns:
+            List of OrderResponse models.
+        """
+        params: dict[str, str] = {}
+        if status is not None:
+            params["status"] = status
+        data = await self._request("GET", "/portfolio/orders", params=params)
+        orders = [OrderResponse(**o) for o in data.get("orders", [])]
+        logger.info(
+            "Orders fetched",
+            extra={"data": {"count": len(orders), "status_filter": status}},
+        )
+        return orders
+
     async def cancel_order(self, order_id: str) -> bool:
         """Cancel a resting order.
 

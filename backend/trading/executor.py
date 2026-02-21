@@ -126,20 +126,35 @@ async def execute_trade(
         )
 
     # Handle unfilled orders — resting means limit order is on the book
-    # but nobody has taken the other side yet. Don't record as a trade.
+    # but nobody has taken the other side yet. Cancel it on Kalshi so it
+    # doesn't sit on the order book locking up cash, then raise an error.
     if order_status == "resting" and filled_count == 0:
-        logger.warning(
-            "Order resting with 0 fills — not recording as trade",
-            extra={
-                "data": {
-                    "order_id": order_id,
-                    "ticker": signal.market_ticker,
-                    "status": order_status,
-                }
-            },
-        )
+        # Cancel the resting order on Kalshi to free up locked cash
+        try:
+            await kalshi_client.cancel_order(order_id)
+            logger.info(
+                "Cancelled unfilled resting order on Kalshi",
+                extra={
+                    "data": {
+                        "order_id": order_id,
+                        "ticker": signal.market_ticker,
+                    }
+                },
+            )
+        except Exception as cancel_exc:
+            logger.error(
+                "Failed to cancel resting order on Kalshi",
+                extra={
+                    "data": {
+                        "order_id": order_id,
+                        "ticker": signal.market_ticker,
+                        "error": str(cancel_exc),
+                    }
+                },
+            )
+
         raise InvalidOrderError(
-            "Order not filled — resting on exchange with 0 contracts matched",
+            "Order not filled — no liquidity at this price. Order cancelled.",
             context={
                 "order_id": order_id,
                 "ticker": signal.market_ticker,
