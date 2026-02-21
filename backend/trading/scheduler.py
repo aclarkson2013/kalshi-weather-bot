@@ -260,6 +260,33 @@ async def _run_trading_cycle() -> None:
             TRADING_CYCLES_TOTAL.labels(outcome="skipped").inc()
             return
 
+        # Portfolio sync: reconcile with Kalshi positions
+        try:
+            from backend.trading.sync import sync_portfolio
+
+            sync_result = await sync_portfolio(kalshi_client, session, user_id)
+            if sync_result.synced_count > 0:
+                logger.info(
+                    "Portfolio sync found new trades",
+                    extra={
+                        "data": {
+                            "synced": sync_result.synced_count,
+                            "skipped": sync_result.skipped_count,
+                        }
+                    },
+                )
+                publish_event_sync(
+                    "trade.synced",
+                    {
+                        "synced_count": sync_result.synced_count,
+                    },
+                )
+        except Exception as exc:
+            logger.warning(
+                "Portfolio sync failed (non-fatal)",
+                extra={"data": {"error": str(exc)}},
+            )
+
         # Fetch predictions for active cities
         predictions = await _fetch_latest_predictions(session, user_settings.active_cities)
         if not predictions:

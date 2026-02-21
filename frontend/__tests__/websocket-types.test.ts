@@ -43,12 +43,13 @@ describe("WebSocket types", () => {
       ]);
     });
 
-    it("covers all 6 event types", () => {
+    it("covers all 7 event types", () => {
       const eventTypes: WebSocketEventType[] = [
         "trade.executed",
         "trade.queued",
         "trade.settled",
         "trade.expired",
+        "trade.synced",
         "dashboard.update",
         "prediction.updated",
       ];

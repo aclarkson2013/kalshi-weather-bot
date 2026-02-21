@@ -185,6 +185,16 @@ export interface PerformanceData {
   accuracy_over_time: AccuracyPoint[];
 }
 
+// ─── Portfolio Sync ───
+
+export interface SyncResult {
+  synced_count: number;
+  skipped_count: number;
+  failed_count: number;
+  errors: string[];
+  synced_at: string;
+}
+
 // ─── Notifications ───
 
 export interface PushSubscriptionPayload {

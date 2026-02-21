@@ -16,6 +16,7 @@ import type {
   PerformanceData,
   PushSubscriptionPayload,
   SettingsUpdate,
+  SyncResult,
   TradeRecord,
   TradesPage,
   UserSettings,
@@ -131,7 +132,7 @@ export async function fetchMarkets(
   return apiFetch<BracketPrediction[]>(`/api/markets${params}`);
 }
 
-// ─── Trades (1 endpoint) ───
+// ─── Trades (2 endpoints) ───
 
 export async function fetchTrades(
   page: number = 1,
@@ -142,6 +143,12 @@ export async function fetchTrades(
   if (city) params.set("city", city);
   if (status) params.set("status", status);
   return apiFetch<TradesPage>(`/api/trades?${params.toString()}`);
+}
+
+export async function syncTrades(): Promise<SyncResult> {
+  return apiFetch<SyncResult>("/api/trades/sync", {
+    method: "POST",
+  });
 }
 
 // ─── Queue (3 endpoints) ───

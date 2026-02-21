@@ -827,6 +827,8 @@ All Prometheus metric objects are module-level singletons. Import them wherever 
 | `ML_TRAINING_DURATION_SECONDS` | Histogram | — | Multi-model training duration |
 | `ML_ENSEMBLE_AGREEMENT_F` | Histogram | — | Spread (max-min) across ML model predictions |
 | `ML_MODELS_AVAILABLE` | Gauge | — | Number of ML models currently loaded |
+| `PORTFOLIO_SYNC_TOTAL` | Counter | outcome | Portfolio sync results (success/error) |
+| `PORTFOLIO_SYNC_TRADES_CREATED` | Counter | — | Number of trades created via portfolio sync |
 
 ### Usage
 

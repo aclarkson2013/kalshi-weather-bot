@@ -64,11 +64,12 @@ tests/
 │   ├── test_error_dist.py    → Season detection + error std calculation (12 tests)
 │   ├── test_postmortem.py    → Post-mortem narrative generation (8 tests)
 │   └── test_pipeline.py      → Full prediction pipeline orchestration + multi-model integration (11 tests)
-├── trading/             → Unit tests + safety tests for backend/trading/ (202 tests)
+├── trading/             → Unit tests + safety tests for backend/trading/ (222 tests)
 │   ├── conftest.py      → Trading fixtures (mock Kalshi client, sample predictions)
 │   ├── test_ev_calculator.py      → EV math, fees, bracket scanning, Kelly integration (45 tests)
 │   ├── test_kelly.py              → Kelly Criterion: sizing, fractional, fees, caps, edge cases (35 tests)
 │   ├── test_scheduler.py          → Celery tasks: trading cycle, expiry, settlement, Kelly params (37 tests)
+│   ├── test_sync.py               → Portfolio sync: ticker parsing, reconciliation, sentinel values, error handling (20 tests)
 │   ├── test_postmortem.py         → Settlement matching, P&L, narratives (13 tests)
 │   ├── test_risk_manager.py       → Risk check ordering + enforcement (12 tests)
 │   ├── test_celery_hardening.py   → Task timeout configs (15 tests)
@@ -77,7 +78,7 @@ tests/
 │   ├── test_cooldown.py           → Per-loss + consecutive cooldowns (9 tests)
 │   ├── test_executor.py           → Order placement + DB recording (8 tests)
 │   └── test_notifications.py      → Web push via VAPID (5 tests)
-├── api/                 → API endpoint tests (93 tests)
+├── api/                 → API endpoint tests (98 tests)
 │   ├── conftest.py      → API fixtures (api_engine, client, mock_kalshi, factories)
 │   ├── test_accuracy.py    → Forecast accuracy endpoints: sources, calibration, trends (17 tests)
 │   ├── test_auth.py     → Auth validate + disconnect (5 tests)
@@ -91,7 +92,8 @@ tests/
 │   ├── test_performance.py  → Performance analytics endpoint (5 tests)
 │   ├── test_queue.py        → Trade queue approve/reject/list (8 tests)
 │   ├── test_settings.py     → Settings read/update (5 tests)
-│   └── test_trades.py       → Trade history endpoint (5 tests)
+│   ├── test_trades.py       → Trade history endpoint (5 tests)
+│   └── test_trades_sync.py  → Portfolio sync API endpoint: sync result, auth, WS events (5 tests)
 ├── websocket/           → Unit tests for backend/websocket/
 │   ├── test_events.py   → Event model, publish_event, publish_event_sync (13 tests)
 │   ├── test_manager.py  → ConnectionManager connect/disconnect/broadcast (12 tests)
@@ -1132,7 +1134,7 @@ jobs:
 | Job | What It Does | Failure Blocks Merge? |
 |------|--------------|-----------------------|
 | `backend-lint` | `ruff check` + `ruff format --check` on `backend/` and `tests/` | Yes |
-| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (1194 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
+| `backend-test` | `pytest tests/ -x -q --tb=short --cov=backend` (1219 tests, in-memory SQLite, no Docker needed) + coverage artifact upload | Yes |
 | `frontend` | `npm run lint` (ESLint via next lint) + `npm test` (Vitest, 110 tests) | Yes |
 | `docker-build` | Docker build smoke test for backend + frontend Dockerfiles | Yes |
 

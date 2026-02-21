@@ -204,3 +204,16 @@ class UserSettings(BaseModel):
     kelly_fraction: float = Field(default=0.25, ge=0.01, le=1.0)  # Quarter Kelly
     max_bankroll_pct_per_trade: float = Field(default=0.05, ge=0.01, le=0.25)  # 5%
     max_contracts_per_trade: int = Field(default=10, ge=1, le=100)
+
+
+# ─── Portfolio Sync ───
+
+
+class SyncResult(BaseModel):
+    """Result of a Kalshi portfolio sync operation."""
+
+    synced_count: int = 0
+    skipped_count: int = 0
+    failed_count: int = 0
+    errors: list[str] = Field(default_factory=list)
+    synced_at: datetime

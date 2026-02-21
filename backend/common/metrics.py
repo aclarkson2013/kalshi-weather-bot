@@ -196,6 +196,20 @@ KELLY_CONTRACTS_HISTOGRAM = Histogram(
 )
 
 
+# ─── Portfolio Sync Metrics ───
+
+PORTFOLIO_SYNC_TOTAL = Counter(
+    "boz_portfolio_sync_total",
+    "Portfolio sync operations",
+    labelnames=["outcome"],
+)
+
+PORTFOLIO_SYNC_TRADES_CREATED = Counter(
+    "boz_portfolio_sync_trades_created_total",
+    "Trade records created by portfolio sync",
+)
+
+
 def set_app_info(version: str, environment: str) -> None:
     """Set the app_info metric values. Called once at startup."""
     APP_INFO.info({"version": version, "environment": environment})

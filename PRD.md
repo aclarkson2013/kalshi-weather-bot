@@ -538,7 +538,8 @@ Your Machine (homelab / cloud VPS)
 | 26 | Forecast accuracy tracking | Brier score calibration, per-source MAE/RMSE/bias, error trends, 3 API endpoints | 54 |
 | 27 | Multi-model ML ensemble | XGBoost + Random Forest + Ridge with inverse-RMSE weighting, training pipeline, graceful degradation | 57 |
 | 28 | One-click cloud deploy | README, Railway/Fly.io/Oracle guides, fly.toml, railway.json, docker-compose.cloud.yml, generate-env.sh | — |
-| **Total** | | **1191 backend + 110 frontend = 1301 tests** | |
+| 29 | Kalshi portfolio sync | Reconcile app Trade records with Kalshi filled orders, auto-sync every 15 min + manual button, SyncResult schema, sync metrics | 25 |
+| **Total** | | **1219 backend + 110 frontend = 1329 tests** | |
 
 ---
 

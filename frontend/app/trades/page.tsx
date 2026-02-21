@@ -1,14 +1,16 @@
 "use client";
 
-import { BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { BarChart3, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import TradeCard from "@/components/trade-card/trade-card";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import Skeleton from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
+import { syncTrades } from "@/lib/api";
 import { useTrades } from "@/lib/hooks";
-import type { CityCode, TradeStatus } from "@/lib/types";
+import type { CityCode, SyncResult, TradeStatus } from "@/lib/types";
 import { centsToDollars, formatPnL } from "@/lib/utils";
 
 const CITY_OPTIONS: (CityCode | "ALL")[] = ["ALL", "NYC", "CHI", "MIA", "AUS"];
@@ -24,10 +26,12 @@ export default function TradesPage() {
   const [page, setPage] = useState(1);
   const [cityFilter, setCityFilter] = useState<CityCode | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<TradeStatus | "ALL">("ALL");
+  const [syncing, setSyncing] = useState(false);
 
   const city = cityFilter === "ALL" ? undefined : cityFilter;
   const status = statusFilter === "ALL" ? undefined : statusFilter;
-  const { data, error, isLoading } = useTrades(page, city, status);
+  const { data, error, isLoading, mutate: mutateTrades } = useTrades(page, city, status);
+  const { showToast } = useToast();
 
   const totalPages = data ? Math.ceil(data.total / 20) : 0;
 
@@ -37,9 +41,48 @@ export default function TradesPage() {
   const wonCount = trades.filter((t) => t.status === "WON").length;
   const lostCount = trades.filter((t) => t.status === "LOST").length;
 
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const result: SyncResult = await syncTrades();
+      if (result.synced_count > 0) {
+        showToast({
+          variant: "success",
+          title: "Portfolio synced",
+          message: `Synced ${result.synced_count} trade${result.synced_count > 1 ? "s" : ""} from Kalshi`,
+        });
+        await mutateTrades();
+      } else {
+        showToast({
+          variant: "info",
+          title: "Already in sync",
+          message: "No new trades found on Kalshi",
+        });
+      }
+    } catch (err) {
+      showToast({
+        variant: "warning",
+        title: "Sync failed",
+        message: err instanceof Error ? err.message : "Unable to sync with Kalshi",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  }, [mutateTrades, showToast]);
+
   return (
     <ErrorBoundary>
-      <h1 className="text-xl font-bold mb-4">Trade History</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold">Trade History</h1>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-medium bg-boz-primary text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+        >
+          <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+          {syncing ? "Syncing..." : "Sync from Kalshi"}
+        </button>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">

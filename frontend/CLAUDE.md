@@ -665,6 +665,7 @@ In addition to SWR polling, a WebSocket connection (`useWebSocket()` hook) recei
 | `trade.queued` | `/api/queue`, `/api/dashboard` |
 | `trade.settled` | `/api/dashboard`, `/api/trades`, `/api/performance` |
 | `trade.expired` | `/api/queue` |
+| `trade.synced` | `/api/dashboard`, `/api/trades` |
 | `dashboard.update` | `/api/dashboard` |
 | `prediction.updated` | `/api/markets` |
 
